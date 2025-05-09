@@ -12,7 +12,6 @@ metadata <- read.csv("data/neopele_neotrioalone_meta.csv")
 rownames(singscores) <- singscores$X
 singscores <- singscores %>% select(-X)
 
-# ✅ Fix column names to match metadata
 colnames(singscores) <- gsub("^X", "", colnames(singscores))
 
 # === Transpose and prepare for merging ===
@@ -31,7 +30,8 @@ merged_sing_df$recurrence_status <- factor(merged_sing_df$recurrence_status)
 #merged_sing_df$Timepoint <- ifelse(merged_sing_df$Timepoint == "0", "Baseline", "Week 6")
 merged_sing_df$Timepoint <- factor(merged_sing_df$Timepoint, levels = c("Baseline", "Week 6"))
 unique(merged_sing_df$Timepoint)
-# ✅ Add MPR and NMPR labels
+
+
 merged_sing_df <- merged_sing_df %>%
   mutate(Response = ifelse(MPRvNMPR == 1, "MPRs", "NMPRs"))
 

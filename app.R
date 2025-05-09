@@ -14,15 +14,11 @@ library(dplyr)
 library(tidyr)
 library(DT)
 library(shinyWidgets)
+library(clusterProfiler)
 
 merged_sing_df <- readRDS("merged_sing_df.rds")
-gmt_data <- read.gmt("data/20241021_188genelist_withphenotypes.gmt")
-
-# === Define UI ===
-# === Load Data ===
-merged_sing_df <- readRDS("merged_sing_df.rds")
-gmt_data <- read.gmt("data/20241021_188genelist_withphenotypes.gmt")
-
+gmt_data <- clusterProfiler::read.gmt("data/20241021_188genelist_withphenotypes.gmt")
+gmt_data
 # === Define UI ===
 ui <- fluidPage(
   titlePanel("Pathway Enrichment Comparison"),
