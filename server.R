@@ -743,6 +743,7 @@ server <- function(input, output, session) {
     }
   )
   
+  
   observeEvent(input$computeCorrelation, {
     req(input$cohortFilter, input$timepointFilter)
     
@@ -750,15 +751,18 @@ server <- function(input, output, session) {
     
     # === Get the appropriate cohort
     cohort_name <- input$cohortFilter
+    timepoint_name <- input$timepointFilter
+    
     if (cohort_name == "All") {
       cohort_data <- merged_sing_df
     } else {
-      cohort_data <- cohorts$groups[[cohort_name]]
+      cohort_data <- merged_sing_df %>%
+        filter(study == cohort_name)
     }
     
     # === Filter by Timepoint
-    if (input$timepointFilter != "Both") {
-      cohort_data <- cohort_data %>% filter(Timepoint == input$timepointFilter)
+    if (timepoint_name != "Both") {
+      cohort_data <- cohort_data %>% filter(Timepoint == timepoint_name)
     }
     
     # === Create a Singscore Matrix
@@ -768,7 +772,7 @@ server <- function(input, output, session) {
       column_to_rownames("sample_id")
     
     # === Enforce Valid Method and Clean Whitespace ===
-    cor_method <- trimws(input$correlationMethod)  # Remove any extra spaces
+    cor_method <- trimws(input$correlationMethod)  
     cor_method <- match.arg(cor_method, c("pearson", "kendall", "spearman"))
     
     # === Compute the Correlation Matrix
@@ -780,21 +784,37 @@ server <- function(input, output, session) {
     output$correlationHeatmap <- renderPlotly({
       heatmaply::heatmaply(
         correlation_matrix,
-        main = "Interactive Pathway Correlation Heatmap",
-        xlab = "Pathways",
-        ylab = "Pathways",
+        main = paste("Signature Correlation Heatmap -", cohort_name, "-", timepoint_name),
+        xlab = NULL,
+        ylab = NULL,
         scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(
           low = "blue", mid = "white", high = "red", midpoint = 0
         ),
         dendrogram = "both",
         k_row = 3, k_col = 3,
-        grid_color = "grey50",
+        grid_color = NA,
         grid_width = 0.2,
         label_names = c("Pathway 1", "Pathway 2", "Correlation"),
         fontsize_row = 8,
         fontsize_col = 8,
-        showticklabels = c(TRUE, TRUE)
-      )
+        showticklabels = c(FALSE, FALSE)
+      ) %>%
+        plotly::layout(
+          xaxis = list(
+            showticklabels = FALSE,
+            title = NULL,
+            showline = FALSE,
+            tickvals = list(),
+            ticktext = list()
+          ),
+          yaxis = list(
+            showticklabels = FALSE,
+            title = NULL,
+            showline = FALSE,
+            tickvals = list(),
+            ticktext = list()
+          )
+        )
     })
     
     showNotification("Interactive heatmap rendering complete!", type = "message")
@@ -802,12 +822,118 @@ server <- function(input, output, session) {
     # === Allow Download of the Correlation Matrix
     output$downloadCorrelation <- downloadHandler(
       filename = function() {
-        paste0("Pathway_Correlation_", Sys.Date(), ".csv")
+        paste0("Pathway_Correlation_", cohort_name, "_", timepoint_name, "_", Sys.Date(), ".csv")
       },
       content = function(file) {
         write.csv(correlation_matrix, file, row.names = TRUE)
       }
     )
+  })
+  
+  observeEvent(input$cohortFilter, {
+    if (input$cohortFilter != "") {
+      shinyjs::click("computeCorrelation")
+    }
+  })
+  
+  observeEvent(input$computeTrajectory, {
+    req(input$trajectoryPathways, input$studyFilter)
+    
+    showNotification("Computing trajectory of pathway correlations...", type = "message")
+    
+    # === Filter by study if not 'All'
+    if (input$studyFilter != "All") {
+      data <- merged_sing_df %>%
+        filter(study == input$studyFilter)
+    } else {
+      data <- merged_sing_df
+    }
+    
+    # === Subset only the selected pathways
+    data <- data %>%
+      filter(Pathway %in% input$trajectoryPathways)
+    
+    # === Pivot to wide format to prepare for correlation calculation
+    singscore_matrix <- data %>%
+      select(sample_id, Pathway, Singscore, Timepoint) %>%
+      pivot_wider(names_from = Pathway, values_from = Singscore) %>%
+      column_to_rownames("sample_id")
+    
+    # === Ensure all columns are numeric
+    singscore_matrix[] <- lapply(singscore_matrix, function(x) {
+  if (is.character(x) || is.factor(x)) {
+    # Attempt coercion and remove NA columns
+    num_x <- suppressWarnings(as.numeric(as.character(x)))
+    if (any(is.na(num_x) & !is.na(x))) {
+      message("Non-numeric column detected and removed: ", deparse(substitute(x)))
+      return(NULL)  # Mark for removal
+    } else {
+      return(num_x)
+    }
+  } else {
+    return(x)
+  }
+})
+
+# === Remove NULL columns (those that failed coercion) ===
+singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
+    
+    # === Remove any columns that are still not numeric (e.g., if coercion failed)
+    singscore_matrix <- singscore_matrix %>%
+      select(where(is.numeric))
+    
+    # === Compute correlation trajectory for each timepoint
+    correlation_list <- list()
+    for (tp in unique(data$Timepoint)) {
+      sub_matrix <- singscore_matrix[data$Timepoint == tp, , drop = FALSE]
+      
+      if (nrow(sub_matrix) > 1) {
+        correlation_matrix <- cor(sub_matrix, use = "pairwise.complete.obs")
+        correlation_list[[tp]] <- correlation_matrix
+      }
+    }
+    
+    # === Create a tidy format for Plotly
+    correlation_df <- do.call(rbind, lapply(names(correlation_list), function(tp) {
+      df <- as.data.frame(as.table(correlation_list[[tp]]))
+      df$Timepoint <- tp
+      return(df)
+    }))
+    colnames(correlation_df) <- c("Pathway1", "Pathway2", "Correlation", "Timepoint")
+    
+    # === Plot the trajectory
+    output$trajectoryPlot <- renderPlotly({
+      plot_ly(data = correlation_df, x = ~Timepoint, y = ~Correlation, color = ~Pathway1,
+              type = 'scatter', mode = 'lines+markers') %>%
+        layout(
+          title = "Trajectory of Pathway Correlations Over Time",
+          xaxis = list(title = "Timepoint"),
+          yaxis = list(title = "Correlation Coefficient")
+        )
+    })
+    
+    # === Compute Delta Correlation Matrix
+    if ("Baseline" %in% names(correlation_list) & "Week 6" %in% names(correlation_list)) {
+      baseline_corr <- correlation_list[["Baseline"]]
+      week6_corr <- correlation_list[["Week 6"]]
+      delta_matrix <- week6_corr - baseline_corr
+      
+      # === Render Delta Correlation Heatmap
+      output$deltaCorrelationHeatmap <- renderPlotly({
+        heatmaply::heatmaply(
+          delta_matrix,
+          main = "Change in Correlation Between Baseline and Week 6",
+          xlab = "Pathways",
+          ylab = "Pathways",
+          colors = colorRampPalette(c("blue", "white", "red"))(100),
+          dendrogram = "both"
+        )
+      })
+    } else {
+      showNotification("One of the timepoints (Baseline or Week 6) is missing.", type = "error")
+    }
+    
+    showNotification("Trajectory analysis complete!", type = "message")
   })
   
   # Download Table as CSV

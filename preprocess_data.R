@@ -14,10 +14,6 @@ metadata <- read.csv("data/neopele_neotrioalone_meta.csv")
 metadata <- metadata %>% select(-X)
 metadata
 
-
-
-
-
 # === Data Transformation ===
 # Set the row names to the pathway names
 rownames(singscores) <- singscores$X

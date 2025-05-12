@@ -185,23 +185,38 @@ ui <- fluidPage(
           selectInput("cohortFilter", "Select Cohort", 
                       choices = c("All", unique(merged_sing_df$study))),
           actionButton("computeCorrelation", "Compute Correlation"),
+          pickerInput("trajectoryPathways", "Select Pathways for Trajectory",
+                      choices = unique(merged_sing_df$Pathway),
+                      multiple = TRUE,
+                      options = list(`actions-box` = TRUE)),
+          selectInput("studyFilter", "Select Study", 
+                      choices = c("All", unique(merged_sing_df$study))),
+          actionButton("computeTrajectory", "Compute Trajectory"),
           br(),
           downloadButton("downloadCorrelation", "Download Correlation Matrix")
         ),
         mainPanel(
           fluidRow(
             column(12,
-                   h3("Pathway Correlation Scatter Plot"),
-                   plotOutput("pathwayCorrelationScatter"),
+                   h3("Pathway Correlation Heatmap"),
+                   plotlyOutput("correlationHeatmap", height = "1000px", width = "1000px"),
                    div(style = "margin-bottom: 20px;")
             )
           ),
-          fluidRow(
-            column(12,
-                   h3("Pathway Correlation Heatmap"),
-                   plotlyOutput("correlationHeatmap", height = "600px"),
-                   div(style = "margin-bottom: 20px;")
-            )
+          mainPanel(
+            fluidRow(
+              column(
+                12,  # 50% width of the row
+                h3("Pathway Correlation Trajectories"),
+                plotlyOutput("trajectoryPlot", height = "500px")
+              ),
+              column(
+                12,  # 50% width of the row
+                h3("Delta Correlation Heatmap"),
+                plotlyOutput("deltaCorrelationHeatmap", height = "500px")
+              )
+            ),
+            div(style = "margin-bottom: 20px;")
           )
         )
       )
