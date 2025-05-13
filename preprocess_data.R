@@ -143,9 +143,7 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = 
   combined_data <- existing_data %>%
     anti_join(new_data, by = "sample_id") %>%
     bind_rows(new_data)
-  
-  print(head(combined_data[combined_data$study == "OpacinNeo",]))
-  
+
   # === 9. Save Back to RDS ===
   saveRDS(combined_data, "merged_sing_df.rds")
   

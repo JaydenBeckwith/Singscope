@@ -3,6 +3,7 @@ merged_sing_df <- readRDS("merged_sing_df.rds")
 gmt_data <- clusterProfiler::read.gmt("data/20241021_188genelist_withphenotypes.gmt")
 gmt_data
 
+write.csv(gmt_data, "singscore_gene_enrichment_list.csv")
 
 server <- function(input, output, session) {
   
@@ -906,7 +907,7 @@ singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
       plot_ly(data = correlation_df, x = ~Timepoint, y = ~Correlation, color = ~Pathway1,
               type = 'scatter', mode = 'lines+markers') %>%
         layout(
-          title = "Trajectory of Pathway Correlations Over Time",
+          title = "",
           xaxis = list(title = "Timepoint"),
           yaxis = list(title = "Correlation Coefficient")
         )
@@ -922,7 +923,7 @@ singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
       output$deltaCorrelationHeatmap <- renderPlotly({
         heatmaply::heatmaply(
           delta_matrix,
-          main = "Change in Correlation Between Baseline and Week 6",
+          main = "",
           xlab = "Pathways",
           ylab = "Pathways",
           colors = colorRampPalette(c("blue", "white", "red"))(100),
