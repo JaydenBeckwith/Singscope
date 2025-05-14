@@ -52,7 +52,7 @@ saveRDS(merged_sing_df, "merged_sing_df.rds")
 preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = "data/20241021_188genelist_withphenotypes.gmt") {
   
   # === Load BioMart ===
-  mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+  mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl", host="https://may2025.archive.ensembl.org")
   
   # === 1. Load Metadata ===
   metadata <- read.csv(metadataPath)

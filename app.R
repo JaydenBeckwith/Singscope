@@ -10,5 +10,5 @@ source("preprocess_data.R")
 source("ui.R")
 source("server.R")
 
-# === Run the Application ===
+### run 
 shinyApp(ui = ui, server = server)

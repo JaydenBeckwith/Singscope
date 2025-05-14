@@ -10,7 +10,7 @@ server <- function(input, output, session) {
   
   # Example DataFrames
   example_expr <- data.frame(
-    Gene = c("ENSG00000000003", "ENSG00000000005", "ENSG00000000419"),
+    ensembl_gene_id = c("ENSG00000000003", "ENSG00000000005", "ENSG00000000419"),
     CF27130 = c(991, 0, 524),
     CF27131 = c(205, 0, 582),
     CF27132 = c(266, 17, 383),
@@ -348,9 +348,7 @@ server <- function(input, output, session) {
         
         # --- DEBUGGING POINT ---
         print(paste0("Pathway: ", path))
-        print(head(data))
-        print(input$comparison)
-        
+
         # If there is no data, let's break early
         if (nrow(data) == 0) {
           showNotification("No data available for this pathway.", type = "error")

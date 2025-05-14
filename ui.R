@@ -33,7 +33,6 @@ ui <- fluidPage(
                       accept = c(".csv", ".tsv")),
             fileInput("metadata", "Upload Metadata (.csv, .tsv)", 
                       accept = c(".csv", ".tsv")),
-            textInput("cohortName", "Enter Cohort Name", value = "NewCohort"),
             actionButton("submitData", "Submit Data"),
             div(style = "margin-bottom: 20px;")
           )
