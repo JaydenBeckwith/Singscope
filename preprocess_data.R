@@ -9,7 +9,7 @@ library(SummarizedExperiment)
 library(readr)
 
 # === Load the data ===
-singscores <- read.csv("data/neopele_neotrioalone_singscores.csv")
+singscores <- read.csv("data/neopele_neotrioalone_singscores_2025.csv")
 metadata <- read.csv("data/neopele_neotrioalone_meta.csv")
 metadata <- metadata %>% select(-X)
 metadata
@@ -49,7 +49,7 @@ saveRDS(merged_sing_df, "merged_sing_df.rds")
 
 
 # === Preprocessing Function ===
-preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = "data/20241021_188genelist_withphenotypes.gmt") {
+preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = "data/20251505_240genelist_withphenotypes.gmt") {
   
   # === Load BioMart ===
   mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl", host="https://may2025.archive.ensembl.org")

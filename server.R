@@ -1,6 +1,6 @@
 # === Define Server Logic ===
 merged_sing_df <- readRDS("merged_sing_df.rds")
-gmt_data <- clusterProfiler::read.gmt("data/20241021_188genelist_withphenotypes.gmt")
+gmt_data <- clusterProfiler::read.gmt("data/20251505_240genelist_withphenotypes.gmt")
 gmt_data
 
 write.csv(gmt_data, "singscore_gene_enrichment_list.csv")
