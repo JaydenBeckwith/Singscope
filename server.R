@@ -3,7 +3,7 @@ merged_sing_df <- readRDS("merged_sing_df.rds")
 gmt_data <- clusterProfiler::read.gmt("data/20251505_240genelist_withphenotypes.gmt")
 gmt_data
 
-write.csv(gmt_data, "singscore_gene_enrichment_list.csv")
+#write.csv(gmt_data, "singscore_gene_enrichment_list.csv")
 
 server <- function(input, output, session) {
   
@@ -24,6 +24,7 @@ server <- function(input, output, session) {
     recurrence_status = c(0, 0, 0, 0, 0),
     Gender = c("M", "F", "M", "F", "M"),
     MPRvNMPR = c(1, 0, 1, 1, 1),
+    Mutation = c("BRAFV600E", "BRAFV600E", "BRAFV600E", "BRAFV600E", "BRAFV600K"),
     Timepoint = c("Baseline", "Baseline", "Baseline", "Baseline", "Baseline")
   )
   
@@ -338,6 +339,40 @@ server <- function(input, output, session) {
     }
   })
   
+  output$mutationPieChart <- renderPlotly({
+    req(selected_data())
+    
+    mutation_summary <- selected_data() %>%
+      mutate(PatientID = sub("_S[0-9]+$", "", sample_id)) %>%  # removes _S0, _S1, etc.
+      distinct(PatientID, Mutation) %>%                         # one entry per patient
+      group_by(Mutation) %>%
+      summarise(Count = n(), .groups = "drop")
+    
+    # Generate a dynamic color palette
+    n_colors <- nrow(mutation_summary)
+    palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")  # Up to 8 colors
+    if (n_colors > 8) {
+      palette <- grDevices::colorRampPalette(palette)(n_colors)
+    }
+    
+    # Create the plot
+    plot_ly(
+      mutation_summary,
+      labels = ~Mutation,
+      values = ~Count,
+      type = 'pie',
+      textinfo = 'label+percent',
+      insidetextorientation = 'radial',
+      marker = list(colors = palette)
+    ) %>%
+      layout(
+        title = "",
+        showlegend = TRUE,
+        margin = list(l = 0, r = 0, b = 0, t = 30)
+      )
+  })
+  
+  
   
   observe({
     lapply(input$pathway, function(path) {
@@ -623,14 +658,14 @@ server <- function(input, output, session) {
             ) +
             theme(
               plot.title = element_text(hjust = 0.5, size = 14),
-              axis.title.y = element_text(size = 12),
-              axis.title.x = element_text(size = 12),
+              axis.title.y = element_text(size = 14),
+              axis.title.x = element_text(size = 14),
               panel.border = element_rect(color = "black", fill = NA, size = 1),
               panel.spacing = unit(0.5, "lines"),
               strip.background = element_rect(fill = "grey80", color = "black"),
-              strip.text = element_text(face = "bold", size = 12),
-              legend.text = element_text(size = 12),
-              legend.title = element_text(size = 12)
+              strip.text = element_text(face = "bold", size = 14),
+              legend.text = element_text(size = 14),
+              legend.title = element_text(size = 14)
             )
           
         } else {
@@ -684,14 +719,14 @@ server <- function(input, output, session) {
             ) +
             theme(
               plot.title = element_text(hjust = 0.5, size = 14),
-              axis.title.y = element_text(size = 12),
-              axis.title.x = element_text(size = 12),
+              axis.title.y = element_text(size = 14),
+              axis.title.x = element_text(size = 14),
               panel.border = element_rect(color = "black", fill = NA, size = 1),
               panel.spacing = unit(0.5, "lines"),
               strip.background = element_rect(fill = "grey80", color = "black"),
-              strip.text = element_text(face = "bold", size = 12),
-              legend.text = element_text(size = 12),
-              legend.title = element_text(size = 12)
+              strip.text = element_text(face = "bold", size = 14),
+              legend.text = element_text(size = 14),
+              legend.title = element_text(size = 14)
             )
         }
         
@@ -766,7 +801,7 @@ server <- function(input, output, session) {
     
     # === Create a Singscore Matrix
     singscore_matrix <- cohort_data %>%
-      select(sample_id, Pathway, Singscore) %>%
+      dplyr::select(sample_id, Pathway, Singscore) %>%
       pivot_wider(names_from = Pathway, values_from = Singscore) %>%
       column_to_rownames("sample_id")
     
@@ -854,7 +889,7 @@ server <- function(input, output, session) {
     
     # === Pivot to wide format to prepare for correlation calculation
     singscore_matrix <- data %>%
-      select(sample_id, Pathway, Singscore, Timepoint) %>%
+      dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
       pivot_wider(names_from = Pathway, values_from = Singscore) %>%
       column_to_rownames("sample_id")
     
@@ -879,7 +914,7 @@ singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
     
     # === Remove any columns that are still not numeric (e.g., if coercion failed)
     singscore_matrix <- singscore_matrix %>%
-      select(where(is.numeric))
+      dplyr::select(where(is.numeric))
     
     # === Compute correlation trajectory for each timepoint
     correlation_list <- list()
@@ -944,4 +979,17 @@ singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
       write.csv(selected_data(), file, row.names = FALSE)
     }
   )
+  
+  observeEvent(input$toggleSignatureSidebar, {
+    toggle("signatureSidebar", anim = TRUE, animType = "slide")
+  })
+  
+  observeEvent(input$toggleCorrelationSidebar, {
+    toggle("correlationSidebar", anim = TRUE, animType = "slide")
+  })
+  
+  observeEvent(input$toggleSurvivalSidebar, {
+    toggle("survivalSidebar", anim = TRUE, animType = "slide")
+  })
+  
 }

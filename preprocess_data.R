@@ -7,17 +7,18 @@ library(dplyr)
 library(clusterProfiler)
 library(SummarizedExperiment)
 library(readr)
+library(tibble)
 
 # === Load the data ===
 singscores <- read.csv("data/neopele_neotrioalone_singscores_2025.csv")
 metadata <- read.csv("data/neopele_neotrioalone_meta.csv")
-metadata <- metadata %>% select(-X)
+metadata <- metadata %>% dplyr::select(-X)
 metadata
 
 # === Data Transformation ===
 # Set the row names to the pathway names
 rownames(singscores) <- singscores$X
-singscores <- singscores %>% select(-X)
+singscores <- singscores %>% dplyr::select(-X)
 
 colnames(singscores) <- gsub("^X", "", colnames(singscores))
 
@@ -102,7 +103,7 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = 
   
   message("filtered counts again")
   rownames(filtered_counts_df) <- filtered_counts_df$ensembl_gene_id
-  filtered_counts_df <- filtered_counts_df %>% select(-ensembl_gene_id)
+  filtered_counts_df <- filtered_counts_df %>% dplyr::select(-ensembl_gene_id)
   print(head(filtered_counts_df))
   message("rpk to tpm")
   # Compute RPK and TPM
