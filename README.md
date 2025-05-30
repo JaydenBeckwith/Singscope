@@ -48,4 +48,12 @@ You can run `testthat` tests directly:
 docker run --rm singscope Rscript -e "testthat::test_dir('tests/testthat')"
 ```
 
+## Debugging locally 
+
+```bash
+docker run -it --rm -p 3838:3838 singscope bash
+cd /srv/shiny-server
+R -e "shiny::runApp('.', port = 3838, host = '0.0.0.0')"
+```
+
 ---
