@@ -15,7 +15,7 @@ library(heatmaply)
 merged_sing_df <- readRDS("merged_sing_df.rds")
 
 # === Define UI ===
-ui <- ui <- fluidPage(
+ui <- fluidPage(
   theme = shinytheme("sandstone"),
   useShinyjs(),
   tags$head(
@@ -79,6 +79,8 @@ ui <- ui <- fluidPage(
       sidebarLayout(
         div(id = "signatureSidebar",
             sidebarPanel(
+              textOutput("signatureCountText"),
+              br(),
               pickerInput("pathway", "Select Signatures", choices = unique(merged_sing_df$Pathway),
                           selected = unique(merged_sing_df$Pathway)[1], multiple = TRUE, options = list(`actions-box` = TRUE)),
               selectInput("study", "Select Study", choices = c("All", unique(merged_sing_df$study))),
@@ -105,8 +107,8 @@ ui <- ui <- fluidPage(
           DT::dataTableOutput("globalTopSignificantTable"),
           br(),
           fluidRow(
-            column(7, h3("Sample Distribution"), plotOutput("sampleDistributionPlot", height = "500px")),
-            column(5, h3("Mutation Distribution"), plotlyOutput("mutationPieChart", height = "600px"))
+            column(7, h3("Sample Distribution"),  withSpinner(plotOutput("sampleDistributionPlot", height = "500px"))),
+            column(5, h3("Mutation Distribution"),  withSpinner((plotlyOutput("mutationPieChart", height = "600px")))
           ),
           br(),
           h3("Selected Sample Data"),
@@ -144,13 +146,13 @@ ui <- ui <- fluidPage(
           fluidRow(
             column(12,
                    h3("Correlation Signatures"),
-                   plotlyOutput("correlationHeatmap", height = "1000px", width = "100%")
+                   withSpinner(plotlyOutput("correlationHeatmap", height = "1000px", width = "100%"))
             )
           ),
           fluidRow(
             column(12,
                    h3("Change in Correlation Across Time"),
-                   plotlyOutput("deltaCorrelationHeatmap", height = "500px", width = "100%")
+                   withSpinner(plotlyOutput("deltaCorrelationHeatmap", height = "1000px", width = "100%"))
             )
           )
         )
@@ -177,10 +179,10 @@ ui <- ui <- fluidPage(
         ),
         mainPanel(
           h3("Kaplan-Meier Survival Curve"),
-          plotlyOutput("kmPlot", height = "500px")
+          withSpinner(plotlyOutput("kmPlot", height = "500px"))
         )
       )
     )
   )
-)
+))
 

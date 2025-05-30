@@ -988,4 +988,10 @@ server <- function(input, output, session) {
     toggle("survivalSidebar", anim = TRUE, animType = "slide")
   })
   
+  output$signatureCountText <- renderText({
+    req(input$pathway)
+    total <- length(unique(merged_sing_df$Pathway))
+    paste("Selected", length(input$pathway), "of", total, "Signatures")
+  })
+  
 }
