@@ -2211,6 +2211,7 @@
       "description": {
         "Package": "fgsea",
         "Title": "Fast Gene Set Enrichment Analysis",
+        "Version": "1.32.0",
         "Authors@R": "c(person(\"Gennady\", \"Korotkevich\", role = \"aut\"),\n             person(\"Vladimir\", \"Sukhov\", role = \"aut\"),\n             person(\"Nikolay\", \"Budin\", role = \"ctb\"),\n             person(\"Nikita\", \"Gusak\", role = \"ctb\"),\n             person(\"Zieman\", \"Mark\", role = \"ctb\"),\n\t\t\t person(\"Alexey\", \"Sergushichev\", email = \"alsergbox@gmail.com\", role = c(\"aut\", \"cre\")))",
         "Description": "The package implements an algorithm for fast gene set enrichment\n    analysis. Using the fast algorithm allows to make more permutations and get\n    more fine grained p-values, which allows to use accurate stantard approaches to\n    multiple hypothesis correction.",
         "biocViews": "GeneExpression, DifferentialExpression, GeneSetEnrichment,\nPathways",
