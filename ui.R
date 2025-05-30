@@ -1,8 +1,3 @@
-
-# === Load Data ===
-merged_sing_df <- readRDS("merged_sing_df.rds")
-
-# === Define UI ===
 library(shiny)
 library(shinythemes)
 library(shinyjs)
@@ -11,8 +6,17 @@ library(plotly)
 library(DT)
 library(shinycssloaders)
 
+
+# === Load Data ===
+rds_path <- if (file.exists("merged_sing_df.rds")) {
+  "merged_sing_df.rds"
+} else {
+  "/srv/shiny-server/merged_sing_df.rds"
+}
+merged_sing_df <- readRDS(rds_path)
+
 ui <- navbarPage(
-  title = "Signature Enrichment Comparison",
+  title = "Singscope",
   theme = shinytheme("sandstone"),
   id = "mainTabs",
   useShinyjs(),
@@ -96,12 +100,14 @@ ui <- navbarPage(
           )
       ),
       mainPanel(
-        h3("Global Top Statistically Significant Comparisons"),
+        h3("Top Statistically Significant Comparisons"),
         DT::dataTableOutput("globalTopSignificantTable"),
         br(),
         fluidRow(
-          column(7, h3("Sample Distribution"), withSpinner(plotOutput("sampleDistributionPlot", height = "500px"))),
-          column(5, h3("Mutation Distribution"), withSpinner(plotlyOutput("mutationPieChart", height = "600px")))
+          column(7, h3("Sample Distribution"), 
+          withSpinner(plotOutput("sampleDistributionPlot", height = "500px"))),
+          column(5, h3("Mutation Distribution"),
+          withSpinner(plotlyOutput("mutationPieChart", height = "600px")))
         ),
         br(),
         h3("Selected Sample Data"),

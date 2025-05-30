@@ -16,14 +16,24 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install CRAN packages
-RUN R -e "install.packages(c( \
-    'shiny', 'shinythemes', 'shinyjs', 'shinyWidgets', 'plotly', 'DT', \
-    'shinycssloaders', 'dplyr', 'tidyr', 'tibble', 'readr', 'RColorBrewer', \
-    'tidyverse' \
-), repos = 'https://cloud.r-project.org')"
+COPY packages.txt /tmp/packages.txt
 
-# Install Bioconductor and packages
-RUN R -e \"if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')\" \\\n    && R -e \"BiocManager::install(version = '3.18')\" \\\n    && R -e \"BiocManager::install(c('biomaRt', 'SummarizedExperiment'))\"
+RUN Rscript -e "install.packages('remotes', repos='https://cloud.r-project.org')"
+
+# Install specific versions
+COPY packages.txt /tmp/packages.txt
+RUN Rscript -e "\
+  pkgs <- readLines('/tmp/packages.txt'); \
+  for (pkg in pkgs) { \
+    parts <- strsplit(pkg, '==')[[1]]; \
+    name <- parts[1]; \
+    version <- parts[2]; \
+    remotes::install_version(name, version = version, repos = 'https://cloud.r-project.org') \
+  }"
+
+RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')" && \
+    Rscript -e "BiocManager::install(version = '3.18')" && \
+    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment'))"
 
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/
@@ -33,4 +43,4 @@ RUN chown -R shiny:shiny /srv/shiny-server
 EXPOSE 3838
 
 # Run the Shiny server
-CMD [\"/usr/bin/shiny-server\"]
+CMD ["shiny-server"]

@@ -1,13 +1,3 @@
-# Load libraries
-library(dplyr)
-library(tidyr)
-library(readr)
-library(biomaRt)
-library(dplyr)
-library(SummarizedExperiment)
-library(readr)
-library(tibble)
-
 # === Load the data ===
 singscores <- read.csv("data/neopele_neotrioalone_singscores_2025.csv")
 metadata <- read.csv("data/neopele_neotrioalone_meta.csv")
