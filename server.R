@@ -167,7 +167,7 @@ server <- function(input, output, session) {
     data <- merged_sing_df %>%
       filter(Pathway %in% input$pathway) %>%
       mutate(
-        Comparison = case_when(
+        Comparison = dplyr::case_when(
           input$comparison == "Response" ~ ifelse(MPRvNMPR == 1, "MPRs", "NMPRs"),
           input$comparison == "Recurrence Status" ~ ifelse(recurrence_status == 1, "Recurrence", "No Recurrence"),
           input$comparison == "Dynamics_Response" ~ ifelse(MPRvNMPR == 1, "MPRs", "NMPRs"),
@@ -408,7 +408,7 @@ server <- function(input, output, session) {
                 .groups = 'drop'
               ) %>%
               mutate(
-                label = case_when(
+                label = dplyr::case_when(
                   is.na(p_value)          ~ "NA",
                   p_value < 0.0001        ~ "p < 0.0001",
                   p_value < 0.001         ~ "p < 0.001",
@@ -478,7 +478,7 @@ server <- function(input, output, session) {
               .groups = 'drop'
             ) %>%
             mutate(
-              label = case_when(
+              label = dplyr::case_when(
                 is.na(p_value)          ~ "NA",
                 p_value < 0.0001        ~ "p < 0.0001",
                 p_value < 0.001         ~ "p < 0.001",
@@ -629,7 +629,7 @@ server <- function(input, output, session) {
                 .groups = 'drop'
               ) %>%
               mutate(
-                label = case_when(
+                label = dplyr::case_when(
                   is.na(p_value)          ~ "NA",
                   p_value < 0.0001        ~ "p < 0.0001",
                   p_value < 0.001         ~ "p < 0.001",
@@ -690,7 +690,7 @@ server <- function(input, output, session) {
               .groups = 'drop'
             ) %>%
             mutate(
-              label = case_when(
+              label = dplyr::case_when(
                 is.na(p_value)          ~ "NA",
                 p_value < 0.0001        ~ "p < 0.0001",
                 p_value < 0.001         ~ "p < 0.001",
@@ -780,7 +780,7 @@ server <- function(input, output, session) {
         select(sample_id, Pathway, Singscore) %>%
         pivot_wider(names_from = Pathway, values_from = Singscore) %>%
         arrange(sample_id) %>%
-        column_to_rownames(var = "sample_id")
+        tibble::column_to_rownames(var = "sample_id")
       
       # ===  Save as CSV
       write.csv(singscore_matrix, file, row.names = TRUE)
@@ -813,7 +813,7 @@ server <- function(input, output, session) {
     singscore_matrix <- cohort_data %>%
       dplyr::select(sample_id, Pathway, Singscore) %>%
       pivot_wider(names_from = Pathway, values_from = Singscore) %>%
-      column_to_rownames("sample_id")
+      tibble::column_to_rownames("sample_id")
     
     # === Enforce Valid Method and Clean Whitespace ===
     cor_method <- trimws(input$correlationMethod)  
