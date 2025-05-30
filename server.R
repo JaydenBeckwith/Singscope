@@ -295,14 +295,16 @@ server <- function(input, output, session) {
         ) +
         theme(
           plot.title = element_text(hjust = 0.5, size = 16),
-          axis.title.y = element_text(size = 12),
-          axis.title.x = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.title.x = element_text(size = 14),
+          axis.text.x = element_text(size = 14),  # adjust the number as needed
+          axis.text.y = element_text(size = 14),  # optional: increase y-axis too
           panel.border = element_rect(color = "black", fill = NA, size = 1),
           panel.spacing = unit(0.5, "lines"),
           strip.background = element_rect(fill = "grey80", color = "black"),
-          strip.text = element_text(face = "bold", size = 12),
-          legend.text = element_text(size = 12),
-          legend.title = element_text(size = 12)
+          strip.text = element_text(face = "bold", size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 14)
         )
       
     } else if (input$comparison %in% c("Recurrence Status", "Dynamics_Recurrence")) {
@@ -327,14 +329,16 @@ server <- function(input, output, session) {
         ) +
         theme(
           plot.title = element_text(hjust = 0.5, size = 16),
-          axis.title.y = element_text(size = 12),
-          axis.title.x = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.title.x = element_text(size = 14),
+          axis.text.x = element_text(size = 14),  # adjust the number as needed
+          axis.text.y = element_text(size = 14),  # optional: increase y-axis too
           panel.border = element_rect(color = "black", fill = NA, size = 1),
           panel.spacing = unit(0.5, "lines"),
           strip.background = element_rect(fill = "grey80", color = "black"),
-          strip.text = element_text(face = "bold", size = 12),
-          legend.text = element_text(size = 12),
-          legend.title = element_text(size = 12)
+          strip.text = element_text(face = "bold", size = 14),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 14)
         )
     }
   })
@@ -446,14 +450,16 @@ server <- function(input, output, session) {
             ) +
             theme(
               plot.title = element_text(hjust = 0.5, size = 14),
-              axis.title.y = element_text(size = 12),
-              axis.title.x = element_text(size = 12),
+              axis.title.y = element_text(size = 14),
+              axis.title.x = element_text(size = 14),
+              axis.text.x = element_text(size = 14),  # adjust the number as needed
+              axis.text.y = element_text(size = 14),  # optional: increase y-axis too
               panel.border = element_rect(color = "black", fill = NA, size = 1),
               panel.spacing = unit(0.5, "lines"),
               strip.background = element_rect(fill = "grey80", color = "black"),
-              strip.text = element_text(face = "bold", size = 12),
-              legend.text = element_text(size = 12),
-              legend.title = element_text(size = 12)
+              strip.text = element_text(face = "bold", size = 14),
+              legend.text = element_text(size = 14),
+              legend.title = element_text(size = 14)
             )
           
         } else {
@@ -509,14 +515,16 @@ server <- function(input, output, session) {
             ) +
             theme(
               plot.title = element_text(hjust = 0.5, size = 14),
-              axis.title.y = element_text(size = 12),
-              axis.title.x = element_text(size = 12),
+              axis.title.y = element_text(size = 14),
+              axis.title.x = element_text(size = 14),
+              axis.text.x = element_text(size = 14),  # adjust the number as needed
+              axis.text.y = element_text(size = 14),  # optional: increase y-axis too
               panel.border = element_rect(color = "black", fill = NA, size = 1),
               panel.spacing = unit(0.5, "lines"),
               strip.background = element_rect(fill = "grey80", color = "black"),
-              strip.text = element_text(face = "bold", size = 12),
-              legend.text = element_text(size = 12),
-              legend.title = element_text(size = 12)
+              strip.text = element_text(face = "bold", size = 14),
+              legend.text = element_text(size = 14),
+              legend.title = element_text(size = 14)
             )
         }
       })
@@ -876,11 +884,11 @@ server <- function(input, output, session) {
     showNotification("Computing trajectory of pathway correlations...", type = "message")
     
     # === Filter by study if not 'All'
-    if (input$studyFilter != "All") {
-      data <- merged_sing_df %>%
+    data <- if (input$studyFilter != "All") {
+      merged_sing_df %>%
         filter(study == input$studyFilter)
     } else {
-      data <- merged_sing_df
+      merged_sing_df
     }
     
     # === Subset only the selected pathways
@@ -888,38 +896,24 @@ server <- function(input, output, session) {
       filter(Pathway %in% input$trajectoryPathways)
     
     # === Pivot to wide format to prepare for correlation calculation
-    singscore_matrix <- data %>%
+    wide_data <- data %>%
       dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
-      pivot_wider(names_from = Pathway, values_from = Singscore) %>%
-      column_to_rownames("sample_id")
+      pivot_wider(names_from = Pathway, values_from = Singscore)
     
-    # === Ensure all columns are numeric
-    singscore_matrix[] <- lapply(singscore_matrix, function(x) {
-  if (is.character(x) || is.factor(x)) {
-    # Attempt coercion and remove NA columns
-    num_x <- suppressWarnings(as.numeric(as.character(x)))
-    if (any(is.na(num_x) & !is.na(x))) {
-      message("Non-numeric column detected and removed: ", deparse(substitute(x)))
-      return(NULL)  # Mark for removal
-    } else {
-      return(num_x)
-    }
-  } else {
-    return(x)
-  }
-})
-
-# === Remove NULL columns (those that failed coercion) ===
-singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
+    # === Ensure numeric columns
+    singscore_matrix <- wide_data %>%
+      dplyr::select(-sample_id, -Timepoint) %>%
+      mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+      as.data.frame()
     
-    # === Remove any columns that are still not numeric (e.g., if coercion failed)
-    singscore_matrix <- singscore_matrix %>%
-      dplyr::select(where(is.numeric))
+    rownames(singscore_matrix) <- wide_data$sample_id
+    timepoints_vector <- wide_data$Timepoint
     
-    # === Compute correlation trajectory for each timepoint
+    # === Compute correlation matrix per timepoint
     correlation_list <- list()
-    for (tp in unique(data$Timepoint)) {
-      sub_matrix <- singscore_matrix[data$Timepoint == tp, , drop = FALSE]
+    for (tp in unique(timepoints_vector)) {
+      idx <- which(timepoints_vector == tp)
+      sub_matrix <- singscore_matrix[idx, , drop = FALSE]
       
       if (nrow(sub_matrix) > 1) {
         correlation_matrix <- cor(sub_matrix, use = "pairwise.complete.obs")
@@ -927,27 +921,29 @@ singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
       }
     }
     
-    # === Create a tidy format for Plotly
+    # === Convert to long format
     correlation_df <- do.call(rbind, lapply(names(correlation_list), function(tp) {
-      df <- as.data.frame(as.table(correlation_list[[tp]]))
-      df$Timepoint <- tp
-      return(df)
+      corr_mat <- correlation_list[[tp]]
+      if (!is.null(corr_mat)) {
+        df <- as.data.frame(as.table(corr_mat))
+        df$Timepoint <- tp
+        return(df)
+      }
     }))
     colnames(correlation_df) <- c("Pathway1", "Pathway2", "Correlation", "Timepoint")
     
-    # === Plot the trajectory
-    output$trajectoryPlot <- renderPlotly({
-      plot_ly(data = correlation_df, x = ~Timepoint, y = ~Correlation, color = ~Pathway1,
-              type = 'scatter', mode = 'lines+markers') %>%
-        layout(
-          title = "",
-          xaxis = list(title = "Timepoint"),
-          yaxis = list(title = "Correlation Coefficient")
-        )
-    })
+    selected_pairs <- combn(unique(input$trajectoryPathways), 2, simplify = FALSE)
+    selected_pair_labels <- sapply(selected_pairs, function(x) paste(sort(x), collapse = " vs "))
     
-    # === Compute Delta Correlation Matrix
-    if ("Baseline" %in% names(correlation_list) & "Week 6" %in% names(correlation_list)) {
+    # Filter only selected pairs (avoid self-correlations)
+    correlation_df <- correlation_df %>%
+      filter(Pathway1 != Pathway2) %>%
+      mutate(Pair = paste(pmin(Pathway1, Pathway2), pmax(Pathway1, Pathway2), sep = " vs ")) %>%
+      filter(Pair %in% selected_pair_labels) %>%
+      distinct(Pair, Timepoint, .keep_all = TRUE)
+    
+    # === Compute Delta Correlation Matrix (Week 6 - Baseline)
+    if ("Baseline" %in% names(correlation_list) && "Week 6" %in% names(correlation_list)) {
       baseline_corr <- correlation_list[["Baseline"]]
       week6_corr <- correlation_list[["Week 6"]]
       delta_matrix <- week6_corr - baseline_corr
@@ -956,7 +952,7 @@ singscore_matrix <- singscore_matrix[, sapply(singscore_matrix, is.numeric)]
       output$deltaCorrelationHeatmap <- renderPlotly({
         heatmaply::heatmaply(
           delta_matrix,
-          main = "",
+          main = "Delta Correlation (Week 6 - Baseline)",
           xlab = "Pathways",
           ylab = "Pathways",
           colors = colorRampPalette(c("blue", "white", "red"))(100),

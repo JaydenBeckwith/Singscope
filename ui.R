@@ -133,7 +133,7 @@ ui <- ui <- fluidPage(
               selectInput("timepointFilter", "Timepoint", choices = c("Both", "Baseline", "Week 6")),
               selectInput("cohortFilter", "Cohort", choices = c("All", unique(merged_sing_df$study))),
               actionButton("computeCorrelation", "Compute Correlation", class = "btn-primary"),
-              tags$hr(), h4("Trajectory Analysis"),
+              tags$hr(), h4("Temporal Trajectory Analysis"),
               pickerInput("trajectoryPathways", "Select Pathways", choices = unique(merged_sing_df$Pathway), multiple = TRUE, options = list(`actions-box` = TRUE)),
               selectInput("studyFilter", "Study", choices = c("All", unique(merged_sing_df$study))),
               actionButton("computeTrajectory", "Compute Trajectory", class = "btn-info"),
@@ -141,13 +141,18 @@ ui <- ui <- fluidPage(
             )
         ),
         mainPanel(
-          h3("Pathway Correlation Heatmap"),
-          plotlyOutput("correlationHeatmap", height = "1000px", width = "1000px"),
-          br(),
-          h3("Pathway Correlation Trajectories"),
-          plotlyOutput("trajectoryPlot", height = "500px"),
-          h3("Delta Correlation Heatmap"),
-          plotlyOutput("deltaCorrelationHeatmap", height = "500px")
+          fluidRow(
+            column(12,
+                   h3("Correlation Signatures"),
+                   plotlyOutput("correlationHeatmap", height = "1000px", width = "100%")
+            )
+          ),
+          fluidRow(
+            column(12,
+                   h3("Change in Correlation Across Time"),
+                   plotlyOutput("deltaCorrelationHeatmap", height = "500px", width = "100%")
+            )
+          )
         )
       )
     ),
