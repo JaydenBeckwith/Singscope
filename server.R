@@ -1,15 +1,24 @@
 
 #library(GSA)
 # === Define Server Logic ===
-merged_sing_df <- readRDS("merged_sing_df.rds")
+rds_path <- if (file.exists("merged_sing_df.rds")) {
+  "merged_sing_df.rds"
+} else {
+  "/srv/shiny-server/merged_sing_df.rds"
+}
+merged_sing_df <- readRDS(rds_path)
 #gmt_data <- clusterProfiler::read.gmt("data/20251505_240genelist_withphenotypes.gmt")
 #gmt_data
-gmt_data <- read.csv("data/singscore_gene_enrichment_list.csv")
-gmt_data
+gmt_path <- if (file.exists("data/singscore_gene_enrichment_list.csv")) {
+  "data/singscore_gene_enrichment_list.csv"
+} else {
+  "/srv/shiny-server/data/singscore_gene_enrichment_list.csv"
+}
+gmt_data <- read.csv(gmt_path)
 
 server <- function(input, output, session) {
-  
-  
+
+  tryCatch({
   # Example DataFrames
   example_expr <- data.frame(
     ensembl_gene_id = c("ENSG00000000003", "ENSG00000000005", "ENSG00000000419"),
@@ -231,7 +240,7 @@ server <- function(input, output, session) {
       )
     
     # Combine and sort
-    bind_rows(response_status, recurrence_status) %>%
+    dplyr::bind_rows(response_status, recurrence_status) %>%
       arrange(p_value)
   })
   
@@ -248,7 +257,7 @@ server <- function(input, output, session) {
   
   # Render Global Top Significant Comparisons
   output$globalTopSignificantTable <- DT::renderDataTable({
-    req(global_comparisons())
+    shiny::req(global_comparisons())
     
     # Display the appropriate number of rows
     DT::datatable(global_comparisons()[1:current_display_count(), ],
@@ -265,28 +274,31 @@ server <- function(input, output, session) {
   })
   
   output$sampleDistributionPlot <- renderPlot({
-    req(selected_data())
-    
-    # Filter and prepare the data
+    shiny::req(selected_data(), input$comparison)
+
     data <- selected_data()
-    
-    # === Deduplicate samples to avoid double counting ===
+
     data <- data %>%
       distinct(study, Timepoint, Comparison, sample_id, .keep_all = TRUE)
-    
-    # === SWITCH LOGIC FOR DYNAMICS OR STANDARD COMPARISON ===
+
+    print(data)
+
     if (input$comparison %in% c("Response", "Dynamics_Response")) {
-      data <- data %>%
+      validate(need("Response" %in% colnames(data), "Missing 'Response' column"))
+
+    data <- data %>%
         group_by(study, Timepoint, Response) %>%
-        summarise(Count = n(), .groups = 'drop')
+        summarise(Count = dplyr::n(), .groups = 'drop')
+    message("error line?")
+    print(data)
       
-      # Plot for Response
+
       ggplot(data, aes(x = study, y = Count, fill = Response)) +
         geom_bar(stat = "identity", position = position_dodge(width = 0.7)) +
         facet_wrap(~ Timepoint, scales = "free_y") +
-        geom_text(aes(label = Count), 
-                  position = position_dodge(width = 0.7), 
-                  vjust = -0.5, 
+        geom_text(aes(label = Count),
+                  position = position_dodge(width = 0.7),
+                  vjust = -0.5,
                   size = 4) +
         theme_minimal() +
         labs(
@@ -299,8 +311,8 @@ server <- function(input, output, session) {
           plot.title = element_text(hjust = 0.5, size = 16),
           axis.title.y = element_text(size = 14),
           axis.title.x = element_text(size = 14),
-          axis.text.x = element_text(size = 14),  # adjust the number as needed
-          axis.text.y = element_text(size = 14),  # optional: increase y-axis too
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
           panel.border = element_rect(color = "black", fill = NA, size = 1),
           panel.spacing = unit(0.5, "lines"),
           strip.background = element_rect(fill = "grey80", color = "black"),
@@ -308,19 +320,18 @@ server <- function(input, output, session) {
           legend.text = element_text(size = 14),
           legend.title = element_text(size = 14)
         )
-      
+
     } else if (input$comparison %in% c("Recurrence Status", "Dynamics_Recurrence")) {
       data <- data %>%
         group_by(study, Timepoint, Comparison) %>%
-        summarise(Count = n(), .groups = 'drop')
-      
-      # Plot for Recurrence
+        summarise(Count = dplyr::n(), .groups = 'drop')
+
       ggplot(data, aes(x = study, y = Count, fill = Comparison)) +
         geom_bar(stat = "identity", position = position_dodge(width = 0.7)) +
         facet_wrap(~ Timepoint, scales = "free_y") +
-        geom_text(aes(label = Count), 
-                  position = position_dodge(width = 0.7), 
-                  vjust = -0.5, 
+        geom_text(aes(label = Count),
+                  position = position_dodge(width = 0.7),
+                  vjust = -0.5,
                   size = 4) +
         theme_minimal() +
         labs(
@@ -333,8 +344,8 @@ server <- function(input, output, session) {
           plot.title = element_text(hjust = 0.5, size = 16),
           axis.title.y = element_text(size = 14),
           axis.title.x = element_text(size = 14),
-          axis.text.x = element_text(size = 14),  # adjust the number as needed
-          axis.text.y = element_text(size = 14),  # optional: increase y-axis too
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
           panel.border = element_rect(color = "black", fill = NA, size = 1),
           panel.spacing = unit(0.5, "lines"),
           strip.background = element_rect(fill = "grey80", color = "black"),
@@ -344,25 +355,30 @@ server <- function(input, output, session) {
         )
     }
   })
-  
+
+
   output$mutationPieChart <- renderPlotly({
-    req(selected_data())
-    
-    mutation_summary <- selected_data() %>%
-      mutate(PatientID = sub("_S[0-9]+$", "", sample_id)) %>%  # removes _S0, _S1, etc.
-      distinct(PatientID, Mutation) %>%                         # one entry per patient
+    shiny::req(selected_data())
+
+    data <- selected_data()
+
+    validate(
+      need(all(c("sample_id", "Mutation") %in% colnames(data)), "Missing required columns for mutation pie chart")
+    )
+
+    mutation_summary <- data %>%
+      mutate(PatientID = sub("_S[0-9]+$", "", sample_id)) %>%
+      distinct(PatientID, Mutation) %>%
       group_by(Mutation) %>%
-      summarise(Count = n(), .groups = "drop")
-    
-    # Generate a dynamic color palette
+      summarise(Count = dplyr::n(), .groups = "drop")
+
     n_colors <- nrow(mutation_summary)
-    palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")  # Up to 8 colors
+    palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")
     if (n_colors > 8) {
       palette <- grDevices::colorRampPalette(palette)(n_colors)
     }
-    
-    # Create the plot
-    plot_ly(
+
+    plotly::plot_ly(
       mutation_summary,
       labels = ~Mutation,
       values = ~Count,
@@ -377,7 +393,6 @@ server <- function(input, output, session) {
         margin = list(l = 0, r = 0, b = 0, t = 30)
       )
   })
-  
   
   
   observe({
@@ -778,7 +793,7 @@ server <- function(input, output, session) {
       # ===  Create the Singscore Matrix
       singscore_matrix <- cohort_data %>%
         select(sample_id, Pathway, Singscore) %>%
-        pivot_wider(names_from = Pathway, values_from = Singscore) %>%
+        tidyr::pivot_wider(names_from = Pathway, values_from = Singscore) %>%
         arrange(sample_id) %>%
         tibble::column_to_rownames(var = "sample_id")
       
@@ -812,7 +827,7 @@ server <- function(input, output, session) {
     # === Create a Singscore Matrix
     singscore_matrix <- cohort_data %>%
       dplyr::select(sample_id, Pathway, Singscore) %>%
-      pivot_wider(names_from = Pathway, values_from = Singscore) %>%
+      tidyr::pivot_wider(names_from = Pathway, values_from = Singscore) %>%
       tibble::column_to_rownames("sample_id")
     
     # === Enforce Valid Method and Clean Whitespace ===
@@ -900,7 +915,7 @@ server <- function(input, output, session) {
     # === Pivot to wide format to prepare for correlation calculation
     wide_data <- data %>%
       dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
-      pivot_wider(names_from = Pathway, values_from = Singscore)
+      tidyr::pivot_wider(names_from = Pathway, values_from = Singscore)
     
     # === Ensure numeric columns
     singscore_matrix <- wide_data %>%
@@ -982,9 +997,9 @@ server <- function(input, output, session) {
     toggle("signatureSidebar", anim = TRUE, animType = "slide")
   })
   
-  observeEvent(input$toggleCorrelationSidebar, {
-    toggle("correlationSidebar", anim = TRUE, animType = "slide")
-  })
+  # observeEvent(input$toggleCorrelationSidebar, {
+  #   toggle("correlationSidebar", anim = TRUE, animType = "slide")
+  # })
   
   observeEvent(input$toggleSurvivalSidebar, {
     toggle("survivalSidebar", anim = TRUE, animType = "slide")
@@ -995,5 +1010,8 @@ server <- function(input, output, session) {
     total <- length(unique(merged_sing_df$Pathway))
     paste("Selected", length(input$pathway), "of", total, "Signatures")
   })
-  
+  },
+   error = function(e) {
+    print(paste("SERVER ERROR:", e$message))
+  })
 }
