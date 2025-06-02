@@ -2,7 +2,7 @@
 FROM rocker/shiny:4.3.1
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get install -y \
   libglpk40 \
   libglpk-dev \
   libxml2-dev \
