@@ -33,7 +33,7 @@ RUN Rscript -e "\
 
 RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')" && \
     Rscript -e "BiocManager::install(version = '3.18')" && \
-    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment'))"
+    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore'))"
 
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/
