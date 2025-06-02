@@ -2,21 +2,18 @@
 FROM rocker/shiny:4.3.1
 
 # Install system dependencies
-RUN apt-get install -y \
-  libglpk40 \
-  libglpk-dev \
-  libxml2-dev \
-  libcurl4-openssl-dev \
-  libssl-dev \
-  libxt-dev \
-  libharfbuzz-dev \
-  libfribidi-dev \
-  libfreetype6-dev \
-  libpng-dev \
-  libtiff5-dev \
-  libjpeg-dev \
-  zlib1g-dev \
-  build-essential
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
+    libgit2-dev \
+    pandoc \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install CRAN packages
 COPY packages.txt /tmp/packages.txt
