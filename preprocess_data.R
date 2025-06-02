@@ -17,7 +17,7 @@ transposed_singscores$sample_id <- rownames(transposed_singscores)
 
 # === Convert to long format for easier plotting ===
 long_singscores <- transposed_singscores %>%
-  pivot_longer(cols = -sample_id, names_to = "Pathway", values_to = "Singscore")
+  tidyr::pivot_longer(cols = -sample_id, names_to = "Pathway", values_to = "Singscore")
 
 # === Merge with Metadata ===
 merged_sing_df <- merge(metadata, long_singscores, by = "sample_id")
@@ -39,7 +39,7 @@ saveRDS(merged_sing_df, "merged_sing_df.rds")
 
 
 # === Preprocessing Function ===
-preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = "data/20251505_240genelist_withphenotypes.gmt") {
+preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath) {
   
   # === Load BioMart ===
   mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl", host="https://may2025.archive.ensembl.org")
@@ -106,7 +106,7 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = 
   tpm <- tpm[!duplicated(tpm$gene_symbol), ]
   
   # === 6. Singscore Analysis ===
-  PIPdx <- getGmt(gmtPath)
+  PIPdx <- read.csv(gmtPath)
   rownames(tpm) <- tpm$gene_symbol
   tpm$gene_symbol <- NULL
   
@@ -119,7 +119,7 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath = 
   
   # Convert to long format for merging
   long_singscores <- transposed_singscores %>%
-    pivot_longer(cols = -sample_id, names_to = "Pathway", values_to = "Singscore")
+    tidyr::pivot_longer(cols = -sample_id, names_to = "Pathway", values_to = "Singscore")
   
   # Merge with metadata
   new_data <- merge(metadata, long_singscores, by = "sample_id")

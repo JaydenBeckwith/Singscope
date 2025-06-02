@@ -38,6 +38,14 @@ An interactive Shiny application for exploring pathway-level singscore enrichmen
    http://localhost:3838
    ```
 
+## Run interactive Docker for logging 
+
+```bash
+   docker run -it --rm -p 3838:3838 singscope bash
+   cd /srv/shiny-server
+   R -e "shiny::runApp('.', port = 3838, host = '0.0.0.0')"
+```
+
 ---
 
 ## Run Tests
