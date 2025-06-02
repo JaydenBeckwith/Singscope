@@ -1,7 +1,7 @@
 source("../../preprocess_data.R")
 library(dplyr)
 library(tidyr)
-library(clusterProfiler)
+library(GSEABase)
 
 # Paths to csvs
 expr_path <- "test_data/opacin_count_demo.csv"

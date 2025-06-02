@@ -13,7 +13,7 @@ library(readr)
 library(RColorBrewer)
 library(tidyverse)
 library(biomaRt)
-library(clusterProfiler)
+library(GSEABase)
 library(SummarizedExperiment)
 
 options(shiny.trace = TRUE)      # Enables Shiny trace logging
