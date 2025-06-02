@@ -9,12 +9,14 @@ rds_path <- if (file.exists("merged_sing_df.rds")) {
 }
 merged_sing_df <- readRDS(rds_path)
 
-gmt_path <- if (file.exists("data/singscore_gene_enrichment_list.csv")) {
-  "data/singscore_gene_enrichment_list.csv"
+
+gmt_path <- if (file.exists("data/20251505_240genelist_withphenotypes.gmt")) {
+  "data/20251505_240genelist_withphenotypes.gmt"
 } else {
-  "/srv/shiny-server/data/singscore_gene_enrichment_list.csv"
+  "/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt"
 }
-gmt_data <- read.csv(gmt_path)
+
+gmt_data <- GSEABase::getGmt(gmt_path)
 
 server <- function(input, output, session) {
 
@@ -99,7 +101,7 @@ server <- function(input, output, session) {
         exprMatrixPath = input$exprMatrix$datapath,
         metadataPath = input$metadata$datapath,
         cohortName = input$cohortName,
-        gmt_path=gmt_data
+        gmtPath=gmt_data
       )
       
       # Update the global reference in memory
@@ -155,7 +157,7 @@ server <- function(input, output, session) {
         exprMatrixPath = input$exprMatrix$datapath,
         metadataPath = input$metadata$datapath,
         cohortName = input$cohortName,
-        gmt_path=gmt_data
+        gmtPath=gmt_data
       )
       
       

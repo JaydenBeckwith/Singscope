@@ -53,7 +53,7 @@ An interactive Shiny application for exploring pathway-level singscore enrichmen
 You can run `testthat` tests directly:
 
 ```bash
-docker run --rm singscope Rscript -e "testthat::test_dir('tests/testthat')"
+docker run --rm singscope Rscript tests/run_tests.R
 ```
 
 ---

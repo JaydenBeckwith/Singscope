@@ -3,17 +3,20 @@ FROM rocker/shiny:4.3.1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libfontconfig1-dev \
-    libfreetype6-dev \
-    libpng-dev \
-    libtiff5-dev \
-    libjpeg-dev \
-    libgit2-dev \
-    pandoc \
-    && rm -rf /var/lib/apt/lists/*
+  libglpk40 \
+  libglpk-dev \
+  libxml2-dev \
+  libcurl4-openssl-dev \
+  libssl-dev \
+  libxt-dev \
+  libharfbuzz-dev \
+  libfribidi-dev \
+  libfreetype6-dev \
+  libpng-dev \
+  libtiff5-dev \
+  libjpeg-dev \
+  zlib1g-dev \
+  build-essential
 
 # Install CRAN packages
 COPY packages.txt /tmp/packages.txt
@@ -33,7 +36,8 @@ RUN Rscript -e "\
 
 RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')" && \
     Rscript -e "BiocManager::install(version = '3.18')" && \
-    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore'))"
+    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore'))" && \
+    Rscript -e "BiocManager::install('clusterProfiler', ask = FALSE, force = TRUE)"
 
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/
