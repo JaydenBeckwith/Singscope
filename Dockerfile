@@ -33,9 +33,7 @@ RUN Rscript -e "\
 
 FROM bioconductor/bioconductor_docker:RELEASE_3_18
 
-# Install any remaining packages you need
-RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')" && \
-    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore', 'clusterProfiler'), ask = FALSE, force = TRUE)"
+RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); options(repos = BiocManager::repositories()); BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore', 'clusterProfiler'), ask = FALSE, force = TRUE)"
 
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/
