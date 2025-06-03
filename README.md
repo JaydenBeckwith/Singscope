@@ -1,5 +1,3 @@
-# Singscope
-
 <p align="center">
   <img src="https://github.com/user-attachments/assets/c0c183eb-d235-4fc2-a005-cc6c4fe31a53" alt="Singscope logo" width="300"/>
 </p>
