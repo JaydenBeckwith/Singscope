@@ -34,7 +34,13 @@ ui <- navbarPage(
       background-color: #fff;
       color: #a08760;
       border-color: #a08760;
-    }"))
+    }")),
+    ### starts the zoom at 80% upon boot up 
+    tags$script(HTML("
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.style.zoom = '80%';
+      });
+    "))
   ),
   
   tabPanel(
@@ -45,6 +51,7 @@ ui <- navbarPage(
         wellPanel(
           h3("Import Data"),
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
+          fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("metadata", "Upload Metadata (.csv, .tsv)", accept = c(".csv", ".tsv")),
           actionButton("submitData", "Submit Data"),
           div(style = "margin-bottom: 20px;")
