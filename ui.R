@@ -116,7 +116,6 @@ ui <- navbarPage(
           column(5, h3("Mutation Distribution"),
           withSpinner(plotlyOutput("mutationPieChart", height = "600px")))
         ),
-        br(),
         h3("Selected Sample Data"),
         h4("Select on rows to create a custom cohort."),
         DT::dataTableOutput("dataTable"),
