@@ -17,6 +17,7 @@ gmt_path <- if (file.exists("data/20251505_240genelist_withphenotypes.gmt")) {
 }
 
 gmt_data <- GSEABase::getGmt(gmt_path)
+gmt_data_show <- read.csv("data/singscore_gene_enrichment_list.csv")
 
 server <- function(input, output, session) {
 
@@ -130,7 +131,7 @@ server <- function(input, output, session) {
     
     # Get genes for each selected pathway
     gene_lists <- lapply(selected_pathways, function(pathway) {
-      genes <- gmt_data$gene[gmt_data$term == pathway]
+      genes <- gmt_data_show$gene[gmt_data_show$term == pathway]
       if (length(genes) > 0) {
         list(
           tags$h5(strong(pathway)), # Header for the pathway
@@ -249,24 +250,20 @@ server <- function(input, output, session) {
   })
   
   # Store the current pagination state
-  current_display_count <- reactiveVal(10)
+  #current_display_count <- reactiveVal(10)
   
-  # Update the number of rows to display when DataTable state changes
-  observeEvent(input$globalTopSignificantTable_state, {
-    state <- input$globalTopSignificantTable_state
-    if (!is.null(state$length) && state$length > 0) {
-      current_display_count(state$length)
-    }
-  })
-  
-  # Render Global Top Significant Comparisons
   output$globalTopSignificantTable <- DT::renderDataTable({
-    shiny::req(global_comparisons())
-    
-    # Display the appropriate number of rows
-    DT::datatable(global_comparisons()[1:current_display_count(), ],
-                  options = list(pageLength = current_display_count()))
-  })
+  shiny::req(global_comparisons())
+  
+  DT::datatable(
+    global_comparisons(),
+    options = list(
+      pageLength = 10,  # Default display
+      lengthMenu = list(c(10, 25, 50, 100, -1), c('10', '25', '50', '100', 'All')),
+      pagingType = "full_numbers"  # Adds first/last page buttons
+    )
+  )
+})
   
   # Generate Plot
   output$dynamicPlots <- renderUI({
@@ -294,7 +291,7 @@ server <- function(input, output, session) {
         group_by(study, Timepoint, Response) %>%
         summarise(Count = dplyr::n(), .groups = 'drop')
     message("error line?")
-    print(data)
+    #print(data)
       
 
       ggplot(data, aes(x = study, y = Count, fill = Response)) +
@@ -552,49 +549,88 @@ server <- function(input, output, session) {
     })
   })
   
-  # Render Data Table
+  # Render Selection Singscore Data Table
   output$dataTable <- DT::renderDataTable({
-    DT::datatable(
-      selected_data()[, !(names(selected_data()) %in% c("MPRvNMPR", "X"))], 
-      options = list(
-        columnDefs = list(
-          list(targets = 0, checkboxes = TRUE)  # Adds checkboxes to the first column
+  dat <- selected_data()[, !(names(selected_data()) %in% c("MPRvNMPR", "X"))]
+  dat <- cbind(" " = "", dat)  # Add blank first column for checkboxes
+
+  DT::datatable(
+    dat,
+    extensions = "Select",
+    selection = "none",
+    options = list(
+      pageLength = 10,  # Default display
+      lengthMenu = list(c(10, 25, 50, 100, -1), c('10', '25', '50', '100', 'All')),
+      pagingType = "full_numbers",  # Adds first/last page buttons
+      columnDefs = list(
+        list(
+          targets = 0,
+          orderable = FALSE,
+          className = "select-checkbox"
         )
       ),
-      selection = list(
-        mode = 'multiple',
-        target = 'row'
+      select = list(
+        style = "multi",
+        selector = "td:first-child"
       ),
-      rownames = FALSE,
-      class = 'display'
+      dom = 'Blfrtip'
+    ),
+    rownames = FALSE,
+    class = 'display',
+    callback = JS(
+      "
+      // Add select all checkbox to header
+      table.on('draw', function() {
+        var checkbox = '<input type=\"checkbox\" id=\"select-all\">';
+        if (!$('#select-all').length) {
+          $(table.column(0).header()).html(checkbox);
+        }
+      });
+
+      // Handle select all click
+      $(document).on('click', '#select-all', function() {
+        if (this.checked) {
+          table.rows().select();
+        } else {
+          table.rows().deselect();
+        }
+      });
+
+      // Keep Shiny in sync
+      table.on('select deselect', function() {
+        var indexes = table.rows({ selected: true }).indexes().toArray();
+        Shiny.setInputValue('selected_rows', indexes);
+      });
+      "
     )
-  })
+  )
+})
+
+cohorts <- reactiveValues(groups = list())
+
+# === Create Cohort from Selected Rows ===
+observeEvent(input$createCohort, {
+  selected <- input$selected_rows
   
-  cohorts <- reactiveValues(groups = list())
-  
-  # === Create Cohort ===
-  observeEvent(input$createCohort, {
-    selected_rows <- input$dataTable_rows_selected
-    
-    if (length(selected_rows) == 0) {
-      showNotification("No samples selected to create a cohort.", type = "error")
-      return(NULL)
-    }
-    
-    cohort_name <- input$cohortNameInput
-    if (cohort_name %in% names(cohorts$groups)) {
-      showNotification("Cohort name already exists. Choose a different name.", type = "error")
-      return(NULL)
-    }
-    
-    # Subset the selected samples from the DataTable
-    cohort_data <- selected_data()[selected_rows, ]
-    cohorts$groups[[cohort_name]] <- cohort_data
-    
-    # Update dropdown
-    updateSelectInput(session, "selectedCohort", choices = names(cohorts$groups))
-    showNotification(paste("Cohort", cohort_name, "created successfully!"), type = "message")
-  })
+  if (is.null(selected) || length(selected) == 0) {
+    showNotification("No samples selected to create a cohort.", type = "error")
+    return(NULL)
+  }
+
+  cohort_name <- input$cohortNameInput
+  if (cohort_name %in% names(cohorts$groups)) {
+    showNotification("Cohort name already exists. Choose a different name.", type = "error")
+    return(NULL)
+  }
+
+  # Subset data based on selected row indices
+  cohort_data <- selected_data()[selected + 1, ]  # Add 1 since JS is 0-indexed
+  cohorts$groups[[cohort_name]] <- cohort_data
+
+  # Update dropdown menu
+  updateSelectInput(session, "selectedCohort", choices = names(cohorts$groups))
+  showNotification(paste("Cohort", cohort_name, "created successfully!"), type = "message")
+})
   
   # === Delete Cohort ===
   observeEvent(input$deleteCohort, {

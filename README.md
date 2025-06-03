@@ -1,5 +1,9 @@
 # Singscope
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4b44ca28-5031-4d1b-b5a2-ef057ebf8b44" alt="Singscope logo" width="400"/>
+</p>
+
 An interactive Shiny application for exploring pathway-level singscore enrichment data, correlation heatmaps, and clinical stratification for melanoma cohorts.
 ---
 

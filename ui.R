@@ -16,7 +16,7 @@ rds_path <- if (file.exists("merged_sing_df.rds")) {
 merged_sing_df <- readRDS(rds_path)
 
 ui <- navbarPage(
-  title = "Singscope",
+   div("Singscope", style = "font-size: 24px; font-weight: bold;"),
   theme = shinytheme("sandstone"),
   id = "mainTabs",
   useShinyjs(),
@@ -34,7 +34,13 @@ ui <- navbarPage(
       background-color: #fff;
       color: #a08760;
       border-color: #a08760;
-    }"))
+    }")),
+    ### starts the zoom at 80% upon boot up 
+    tags$script(HTML("
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.style.zoom = '80%';
+      });
+    "))
   ),
   
   tabPanel(
@@ -45,6 +51,7 @@ ui <- navbarPage(
         wellPanel(
           h3("Import Data"),
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
+          fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("metadata", "Upload Metadata (.csv, .tsv)", accept = c(".csv", ".tsv")),
           actionButton("submitData", "Submit Data"),
           div(style = "margin-bottom: 20px;")
@@ -52,14 +59,18 @@ ui <- navbarPage(
       )
     ),
     fluidRow(
-      column(
-        12,
+    column(
+      12,
+      div(
+        style = "display: flex; gap: 10px;",
         actionButton("showExample", "Show Example Data Format", icon = icon("eye")),
-        div(id = "exampleData", style = "display: none;",
-            br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
-            br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata"))
-      )
-    ),
+        actionButton("useExampleData", "Use Example Data", icon = icon("upload"))
+      ),
+      div(id = "exampleData", style = "display: none;",
+          br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
+          br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata"))
+    )
+  ),
     fluidRow(
       column(12,
              h3("Uploaded Data Preview"),
@@ -109,7 +120,6 @@ ui <- navbarPage(
           column(5, h3("Mutation Distribution"),
           withSpinner(plotlyOutput("mutationPieChart", height = "600px")))
         ),
-        br(),
         h3("Selected Sample Data"),
         h4("Select on rows to create a custom cohort."),
         DT::dataTableOutput("dataTable"),
