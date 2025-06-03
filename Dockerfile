@@ -31,10 +31,11 @@ RUN Rscript -e "\
     remotes::install_version(name, version = version, repos = 'https://cloud.r-project.org') \
   }"
 
+FROM bioconductor/bioconductor_docker:RELEASE_3_18
+
+# Install any remaining packages you need
 RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')" && \
-    Rscript -e "BiocManager::install(version = '3.18')" && \
-    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore'))" && \
-    Rscript -e "BiocManager::install('clusterProfiler', ask = FALSE, force = TRUE)"
+    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore', 'clusterProfiler'), ask = FALSE, force = TRUE)"
 
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/
@@ -43,5 +44,5 @@ RUN chown -R shiny:shiny /srv/shiny-server
 # Expose the Shiny port
 EXPOSE 3838
 
-# Run the Shiny server
+# Start the server
 CMD ["shiny-server"]
