@@ -31,11 +31,10 @@ RUN Rscript -e "\
     remotes::install_version(name, version = version, repos = 'https://cloud.r-project.org') \
   }"
 
-RUN Rscript -e "\
-  options(repos = BiocManager::repositories()); \
-  if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); \
-  BiocManager::install(version = '3.18'); \
-  BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore', 'clusterProfiler'), ask = FALSE, force = TRUE)"
+RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager')" && \
+    Rscript -e "BiocManager::install(version = '3.18')" && \
+    Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore'))" && \
+    Rscript -e "BiocManager::install('clusterProfiler', ask = FALSE, force = TRUE)"
 
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/

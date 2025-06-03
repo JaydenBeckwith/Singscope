@@ -16,7 +16,7 @@ rds_path <- if (file.exists("merged_sing_df.rds")) {
 merged_sing_df <- readRDS(rds_path)
 
 ui <- navbarPage(
-  title = "Singscope",
+   div("Singscope", style = "font-size: 24px; font-weight: bold;"),
   theme = shinytheme("sandstone"),
   id = "mainTabs",
   useShinyjs(),
@@ -59,14 +59,18 @@ ui <- navbarPage(
       )
     ),
     fluidRow(
-      column(
-        12,
+    column(
+      12,
+      div(
+        style = "display: flex; gap: 10px;",
         actionButton("showExample", "Show Example Data Format", icon = icon("eye")),
-        div(id = "exampleData", style = "display: none;",
-            br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
-            br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata"))
-      )
-    ),
+        actionButton("useExampleData", "Use Example Data", icon = icon("upload"))
+      ),
+      div(id = "exampleData", style = "display: none;",
+          br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
+          br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata"))
+    )
+  ),
     fluidRow(
       column(12,
              h3("Uploaded Data Preview"),

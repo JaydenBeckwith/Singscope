@@ -250,24 +250,20 @@ server <- function(input, output, session) {
   })
   
   # Store the current pagination state
-  current_display_count <- reactiveVal(10)
+  #current_display_count <- reactiveVal(10)
   
-  # Update the number of rows to display when DataTable state changes
-  observeEvent(input$globalTopSignificantTable_state, {
-    state <- input$globalTopSignificantTable_state
-    if (!is.null(state$length) && state$length > 0) {
-      current_display_count(state$length)
-    }
-  })
-  
-  # Render Global Top Significant Comparisons
   output$globalTopSignificantTable <- DT::renderDataTable({
-    shiny::req(global_comparisons())
-    
-    # Display the appropriate number of rows
-    DT::datatable(global_comparisons()[1:current_display_count(), ],
-                  options = list(pageLength = current_display_count()))
-  })
+  shiny::req(global_comparisons())
+  
+  DT::datatable(
+    global_comparisons(),
+    options = list(
+      pageLength = 10,  # Default display
+      lengthMenu = list(c(10, 25, 50, 100, -1), c('10', '25', '50', '100', 'All')),
+      pagingType = "full_numbers"  # Adds first/last page buttons
+    )
+  )
+})
   
   # Generate Plot
   output$dynamicPlots <- renderUI({
@@ -563,6 +559,9 @@ server <- function(input, output, session) {
     extensions = "Select",
     selection = "none",
     options = list(
+      pageLength = 10,  # Default display
+      lengthMenu = list(c(10, 25, 50, 100, -1), c('10', '25', '50', '100', 'All')),
+      pagingType = "full_numbers",  # Adds first/last page buttons
       columnDefs = list(
         list(
           targets = 0,
@@ -574,7 +573,7 @@ server <- function(input, output, session) {
         style = "multi",
         selector = "td:first-child"
       ),
-      dom = 'Bfrtip'
+      dom = 'Blfrtip'
     ),
     rownames = FALSE,
     class = 'display',
