@@ -11,7 +11,7 @@ library(shinycssloaders)
 rds_path <- if (file.exists("merged_sing_df.rds")) {
   "merged_sing_df.rds"
 } else {
-  "/srv/shiny-server/merged_sing_df.rds"
+  "/srv/shiny-server/data/merged_sing_df.rds"
 }
 merged_sing_df <- readRDS(rds_path)
 
@@ -53,7 +53,10 @@ ui <- navbarPage(
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("metadata", "Upload Metadata (.csv, .tsv)", accept = c(".csv", ".tsv")),
+          checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
           actionButton("submitData", "Submit Data"),
+          br(),
+          verbatimTextOutput("preprocessLog"),
           div(style = "margin-bottom: 20px;")
         )
       )
@@ -115,10 +118,16 @@ ui <- navbarPage(
         DT::dataTableOutput("globalTopSignificantTable"),
         br(),
         fluidRow(
-          column(7, h3("Sample Distribution"), 
-          withSpinner(plotOutput("sampleDistributionPlot", height = "500px"))),
-          column(5, h3("Mutation Distribution"),
-          withSpinner(plotlyOutput("mutationPieChart", height = "600px")))
+          column(12,
+                h3("Sample Distribution"),
+                withSpinner(plotOutput("sampleDistributionPlot", height = "500px"))
+          )
+        ),
+        fluidRow(
+          column(12,
+                h3("Mutation Distribution"),
+                withSpinner(plotlyOutput("mutationPieChart", height = "550px"))
+          )
         ),
         h3("Selected Sample Data"),
         h4("Select on rows to create a custom cohort."),

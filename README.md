@@ -46,7 +46,7 @@ An interactive Shiny application for exploring pathway-level singscore enrichmen
 
 ```bash
    docker run -it --rm -p 3838:3838 singscope bash
-   cd /srv/shiny-server
+   cd /srv/shiny-server/R
    R -e "shiny::runApp('.', port = 3838, host = '0.0.0.0')"
 ```
 
