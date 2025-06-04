@@ -52,7 +52,7 @@ ui <- navbarPage(
           h3("Import Data"),
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
-          fileInput("metadata", "Upload Metadata (.csv, .tsv)", accept = c(".csv", ".tsv")),
+          fileInput("metadata", "Upload Clinical Data (.csv, .tsv)", accept = c(".csv", ".tsv")),
           checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
           actionButton("submitData", "Submit Data"),
           br(),
@@ -126,7 +126,7 @@ ui <- navbarPage(
         fluidRow(
           column(12,
                 h3("Mutation Distribution"),
-                withSpinner(plotlyOutput("mutationPieChart", height = "550px"))
+                withSpinner(plotlyOutput("mutationPieChart", height = "500px"))
           )
         ),
         h3("Selected Sample Data"),

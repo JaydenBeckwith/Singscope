@@ -22,6 +22,7 @@ options(shiny.autoreload = TRUE)
 source("preprocess_data.R")
 source("ui.R")
 source("server.R")
+source("survival.R")
 
 ### run 
 shinyApp(ui = ui, server = server)
