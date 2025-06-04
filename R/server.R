@@ -1,23 +1,22 @@
-
+library(GSEABase)
 source("preprocess_data.R")
 
 # === Define Server Logic ===
-rds_path <- if (file.exists("merged_sing_df.rds")) {
+EXAMPLE_DATA <- if (file.exists("merged_sing_df.rds")) {
   "merged_sing_df.rds"
 } else {
-  "/srv/shiny-server/merged_sing_df.rds"
+  "/srv/shiny-server/data/merged_sing_df.rds"
 }
-merged_sing_df <- readRDS(rds_path)
+merged_sing_df <- readRDS(EXAMPLE_DATA)
 
 
-gmt_path <- if (file.exists("data/20251505_240genelist_withphenotypes.gmt")) {
-  "data/20251505_240genelist_withphenotypes.gmt"
+gmt_path <- if (file.exists("/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt")) {
+  "/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt"
 } else {
   "/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt"
 }
 
-gmt_data <- GSEABase::getGmt(gmt_path)
-gmt_data_show <- read.csv("data/singscore_gene_enrichment_list.csv")
+gmt_data_show <- read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
 
 server <- function(input, output, session) {
 
@@ -56,22 +55,23 @@ server <- function(input, output, session) {
     toggle("exampleData")
   })
   
-  
-  # === Upload and Preview Data ===
   expr_data <- reactiveVal(NULL)
   metadata_data <- reactiveVal(NULL)
   
   observeEvent(input$submitData, {
     req(input$exprMatrix, input$metadata)
-    
+
+    shinyjs::disable("submitData")
+    shinyjs::html("submitData", '<i class="fa fa-spinner fa-spin"></i> Loading...')
+
     # === 1. Load the Data ===
     expr <- read.csv(input$exprMatrix$datapath, row.names = 1)
     meta <- read.csv(input$metadata$datapath)
-    
+
     # === 2. Save to Reactive Values for Display ===
     expr_data(expr)
     metadata_data(meta)
-    
+
     # === 3. Update the UI with Upload Status ===
     output$uploadStatus <- renderUI({
       div(
@@ -79,15 +79,25 @@ server <- function(input, output, session) {
         p(paste("Cohort Name: ", input$cohortName))
       )
     })
-    
+
     output$previewExprMatrix <- DT::renderDataTable({
       DT::datatable(expr_data(), options = list(pageLength = 5))
     })
-    
+
     output$previewMetadata <- DT::renderDataTable({
       DT::datatable(metadata_data(), options = list(pageLength = 5))
     })
-    
+
+    log_text <- reactiveVal("")
+
+    append_log <- function(msg) {
+      isolate(log_text(paste(log_text(), msg, sep = "\n")))
+    }
+
+    output$preprocessLog <- renderText({
+      log_text()
+    })
+
     # === 4. Preprocessing Status Update ===
     output$preprocessStatus <- renderUI({
       div(
@@ -95,31 +105,38 @@ server <- function(input, output, session) {
         p("Please wait while your data is being processed.")
       )
     })
-    
+
     tryCatch({
-      # Call the preprocessing function and append to RDS
+      log_text("Starting preprocessing...")  
+
       new_data <- preprocess_data(
         exprMatrixPath = input$exprMatrix$datapath,
         metadataPath = input$metadata$datapath,
         cohortName = input$cohortName,
-        gmtPath=gmt_data
+        gmtPath = gmt_path,
+        existing_data_merge = input$mergeToExample,
+        example_data_path = EXAMPLE_DATA,
+        logger = append_log
       )
-      
-      # Update the global reference in memory
+
       merged_sing_df <<- new_data
-      
-      # Refresh Pathway and Study options
+
       updatePickerInput(session, "pathway", choices = unique(merged_sing_df$Pathway))
       updateSelectInput(session, "study", choices = c("All", unique(merged_sing_df$study)))
-      
-      # Show success notification
+
       showNotification("Data imported and merged successfully!", type = "message")
-      
+      append_log("Preprocessing complete.")
+
     }, error = function(e) {
       showNotification(paste("Error:", e$message), type = "error")
+      append_log(paste("Error:", e$message))
+
+    }, finally = {
+      shinyjs::enable("submitData")
+      shinyjs::html("submitData", "Submit Data")
     })
   })
-  
+    
   
   # Reactive expression to get associated genes from GMTy
   output$geneList <- renderUI({
@@ -148,33 +165,6 @@ server <- function(input, output, session) {
     # Return combined UI
     do.call(tagList, gene_lists)
   })
-  
-  observeEvent(input$submitData, {
-    req(input$exprMatrix, input$metadata)
-    
-    tryCatch({
-      # Call the preprocessing function and append to RDS
-      new_data <- preprocess_data(
-        exprMatrixPath = input$exprMatrix$datapath,
-        metadataPath = input$metadata$datapath,
-        cohortName = input$cohortName,
-        gmtPath=gmt_data
-      )
-      
-      
-      # Refresh Pathway and Study options
-      updatePickerInput(session, "pathway", choices = unique(new_data$Pathway))
-      updateSelectInput(session, "study", choices = c("All", unique(new_data$study)))
-      
-      # Show success notification
-      showNotification("Data imported and merged successfully!", type = "message")
-      
-    }, error = function(e) {
-      showNotification(paste("Error:", e$message), type = "error")
-    })
-  })
-  
-  
   
   # Reactive data subset for the plot and table
   selected_data <- reactive({
@@ -1044,7 +1034,7 @@ observeEvent(input$createCohort, {
   observeEvent(input$toggleSurvivalSidebar, {
     toggle("survivalSidebar", anim = TRUE, animType = "slide")
   })
-  
+
   output$signatureCountText <- renderText({
     req(input$pathway)
     total <- length(unique(merged_sing_df$Pathway))
