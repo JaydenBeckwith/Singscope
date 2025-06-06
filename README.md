@@ -4,14 +4,18 @@
   <img src="https://github.com/user-attachments/assets/4b44ca28-5031-4d1b-b5a2-ef057ebf8b44" alt="Singscope logo" width="400"/>
 </p>
 
-An interactive Shiny application for exploring pathway-level singscore enrichment data, correlation heatmaps, and clinical stratification for melanoma cohorts.
+An interactive Shiny application for analysing bulk RNA signatures, conducting data analytics and supporting clinical stratification of melanoma patient cohorts.
 ---
 
 ## Features
 
-* Upload and visualise signature enrichment scores
-* Compare mutation and response distributions
-* Correlation heatmaps of selected pathways
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9fb8c652-f99c-43f5-b12f-b87fcb5c62a1" alt="toolexplanation" width="800"/>
+</p>
+
+* Upload and visualise signature enrichment scores (Singscores)
+* Track treatment response and recurrence distributions
+* Correlation heatmaps of selected signatures
 * Track pathway correlations over time
 * Survival analysis with KM plots
 ---

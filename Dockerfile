@@ -36,6 +36,8 @@ RUN Rscript -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.pa
     Rscript -e "BiocManager::install(c('biomaRt', 'SummarizedExperiment', 'singscore'))" && \
     Rscript -e "BiocManager::install('clusterProfiler', ask = FALSE, force = TRUE)"
 
+RUN Rscript -e "remotes::install_github('kassambara/survminer', build_vignettes = FALSE)"
+
 # Copy your Shiny app to the image
 COPY . /srv/shiny-server/
 RUN chown -R shiny:shiny /srv/shiny-server
