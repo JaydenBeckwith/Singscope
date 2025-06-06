@@ -10,7 +10,7 @@ An interactive Shiny application for analysing bulk RNA signatures, conducting d
 ## Features
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/9fb8c652-f99c-43f5-b12f-b87fcb5c62a1" alt="toolexplanation" width="400"/>
+  <img src="https://github.com/user-attachments/assets/9fb8c652-f99c-43f5-b12f-b87fcb5c62a1" alt="toolexplanation" width="800"/>
 </p>
 
 * Upload and visualise signature enrichment scores (Singscores)
