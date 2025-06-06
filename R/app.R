@@ -15,6 +15,9 @@ library(tidyverse)
 library(biomaRt)
 library(GSEABase)
 library(SummarizedExperiment)
+library(survival)
+library(survminer)
+library(GGally)
 
 options(shiny.trace = TRUE)      # Enables Shiny trace logging
 options(shiny.autoreload = TRUE) 

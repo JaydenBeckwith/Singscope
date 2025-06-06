@@ -2,10 +2,10 @@ library(GSEABase)
 source("preprocess_data.R")
 
 # === Define Server Logic ===
-EXAMPLE_DATA <- if (file.exists("merged_sing_df.rds")) {
+EXAMPLE_DATA <- if (file.exists("example_data_neotrio_neopele.rds")) {
   "merged_sing_df.rds"
 } else {
-  "/srv/shiny-server/data/merged_sing_df.rds"
+  "/srv/shiny-server/data/example_data_neotrio_neopele.rds"
 }
 merged_sing_df <- readRDS(EXAMPLE_DATA)
 
@@ -19,6 +19,36 @@ gmt_path <- if (file.exists("/srv/shiny-server/data/20251505_240genelist_withphe
 gmt_data_show <- read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
 
 server <- function(input, output, session) {
+
+  version <- reactive({
+    readLines("www/version.txt", warn = FALSE)[1]
+  })
+
+  last_updated <- reactive({
+    file.info("www/version.txt")$mtime |> format("%d %b %Y %H:%M")
+  })
+
+  output$app_version <- renderUI({
+    HTML(glue::glue('
+      <a href="www/version.txt"
+         title="Last updated: {last_updated()}"
+         target="_blank"
+         style="
+           text-decoration: none;
+           background-color: #e6f3f7;
+           color: #29A3C1;
+           font-size: 12px;
+           padding: 4px 10px;
+           border-radius: 4px;
+           font-weight: bold;
+           margin-right: 10px;
+           border: 1px solid #29A3C1;
+           box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+         ">
+         {version()}
+      </a>
+    '))
+  })
 
   tryCatch({
   # Example DataFrames
@@ -347,7 +377,7 @@ server <- function(input, output, session) {
     }
   })
 
-
+  #### mutation pie chart 
   output$mutationPieChart <- renderPlotly({
     shiny::req(selected_data())
 
@@ -372,6 +402,51 @@ server <- function(input, output, session) {
     plotly::plot_ly(
       mutation_summary,
       labels = ~Mutation,
+      values = ~Count,
+      type = 'pie',
+      textinfo = 'label+percent',
+      insidetextorientation = 'radial',
+      marker = list(colors = palette)
+    ) %>%
+      layout(
+        title = "",
+        showlegend = TRUE,
+        margin = list(l = 0, r = 0, b = 0, t = 30)
+      )
+  })
+
+  #### nodal site pie chart 
+  output$nodalSitePieChart <- renderPlotly({
+    shiny::req(selected_data())
+    
+    data <- selected_data()
+    
+    validate(
+      need(all(c("sample_id", "nodal_site") %in% colnames(data)), "Missing required columns for nodal site pie chart")
+    )
+    
+    # 🔁 Map nodal site numbers to names
+    nodal_map <- c("1" = "neck", "2" = "axilla", "3" = "groin")
+    
+    nodal_summary <- data %>%
+      mutate(
+        PatientID = sub("_S[0-9]+$", "", sample_id),
+        nodal_site = as.character(nodal_site),
+        nodal_site = nodal_map[nodal_site]
+      ) %>%
+      distinct(PatientID, nodal_site) %>%
+      group_by(nodal_site) %>%
+      summarise(Count = dplyr::n(), .groups = "drop")
+    
+    n_colors <- nrow(nodal_summary)
+    palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")
+    if (n_colors > 8) {
+      palette <- grDevices::colorRampPalette(palette)(n_colors)
+    }
+    
+    plotly::plot_ly(
+      nodal_summary,
+      labels = ~nodal_site,
       values = ~Count,
       type = 'pie',
       textinfo = 'label+percent',
@@ -551,7 +626,8 @@ server <- function(input, output, session) {
     options = list(
       pageLength = 10,  # Default display
       lengthMenu = list(c(10, 25, 50, 100, -1), c('10', '25', '50', '100', 'All')),
-      pagingType = "full_numbers",  # Adds first/last page buttons
+      pagingType = "full_numbers", 
+      scrollX = TRUE, # Adds first/last page buttons
       columnDefs = list(
         list(
           targets = 0,
@@ -563,7 +639,8 @@ server <- function(input, output, session) {
         style = "multi",
         selector = "td:first-child"
       ),
-      dom = 'Blfrtip'
+      dom = 'Blfrtip',
+      buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
     ),
     rownames = FALSE,
     class = 'display',

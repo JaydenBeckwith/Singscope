@@ -16,7 +16,11 @@ rds_path <- if (file.exists("merged_sing_df.rds")) {
 merged_sing_df <- readRDS(rds_path)
 
 ui <- navbarPage(
-   div("Singscope", style = "font-size: 24px; font-weight: bold;"),
+  title = div(
+    img(src = "singscope_logo.png", height = "20px", style = "margin-right: 10px;"),
+    uiOutput("app_version"),  # reactive version badge
+    style = "display: flex; align-items: center; height: 100%;"
+  ),
   theme = shinytheme("sandstone"),
   id = "mainTabs",
   useShinyjs(),
@@ -35,7 +39,6 @@ ui <- navbarPage(
       color: #a08760;
       border-color: #a08760;
     }")),
-    ### starts the zoom at 80% upon boot up 
     tags$script(HTML("
       document.addEventListener('DOMContentLoaded', function() {
         document.body.style.zoom = '80%';
@@ -124,9 +127,13 @@ ui <- navbarPage(
           )
         ),
         fluidRow(
-          column(12,
+          column(6,
                 h3("Mutation Distribution"),
                 withSpinner(plotlyOutput("mutationPieChart", height = "500px"))
+          ),
+          column(6,
+                h3("Nodal Site Distribution"),
+                withSpinner(plotlyOutput("nodalSitePieChart", height = "500px"))
           )
         ),
         h3("Selected Sample Data"),
@@ -184,7 +191,7 @@ ui <- navbarPage(
     sidebarLayout(
       div(id = "survivalSidebar",
           sidebarPanel(
-            selectInput("survivalTime", "Select Time Variable", choices = c("time_to_event")),
+            selectInput("survivalTime", "Select Time Variable", choices = c("OS","RFS","MSS")),
             selectInput("survivalEvent", "Select Event Variable", choices = c("event")),
             selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
             selectInput("timepointSurv", "Filter by Timepoint", choices = c("Both", "Baseline", "Week 6")),

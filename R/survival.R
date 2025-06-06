@@ -1,8 +1,7 @@
-library(survival)
-library(survminer)
 
 
-run_survival_analysis <-  function(data, survival_type = c("OS", "RFS"), group_col = "Response", title = NULL) {
+run_survival_analysis <-  function(data, survival_type = c("OS", "RFS","MSS"), group_col = "Response", title = NULL) {
+
   survival_type <- match.arg(survival_type)
 
   # Determine column names
@@ -15,6 +14,7 @@ run_survival_analysis <-  function(data, survival_type = c("OS", "RFS"), group_c
   # Validate presence of required columns
   required <- c(time_col, event_col, group_col)
   missing <- setdiff(required, names(data))
+
   if (length(missing) > 0) stop("Missing columns: ", paste(missing, collapse = ", "))
 
   surv_obj <- Surv(time = data[[time_col]], event = data[[event_col]])
@@ -31,11 +31,11 @@ run_survival_analysis <-  function(data, survival_type = c("OS", "RFS"), group_c
     risk.table = TRUE,
     pval = FALSE,
     legend.title = group_col,
-    ggtheme = theme_minimal(),
-    title = title
+    ggtheme = theme_minimal()
   )
 
-  # Convert to plotly for Shiny compatibility
-  ggplotly(ggs$plot) %>%
-    layout(title = list(text = paste0(title, "<br><sup>", pval_txt, "</sup>")))
+  return(ggs)
+}
+
+plotly_survival <- function(survival_plot){
 }
