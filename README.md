@@ -14,8 +14,8 @@ An interactive Shiny application for analysing bulk RNA signatures, conducting d
 </p>
 
 * Upload and visualise signature enrichment scores (Singscores)
-* Compare mutation and response distributions
-* Correlation heatmaps of selected pathways
+* Track treatment response and recurrence distributions
+* Correlation heatmaps of selected signatures
 * Track pathway correlations over time
 * Survival analysis with KM plots
 ---
