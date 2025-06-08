@@ -1,11 +1,12 @@
 library(GSEABase)
 source("preprocess_data.R")
+source("survival.R")
 
 # === Define Server Logic ===
-EXAMPLE_DATA <- if (file.exists("merged_sing_df.rds")) {
+EXAMPLE_DATA <- if (file.exists("example_data_neotrio_neopele.rds")) {
   "merged_sing_df.rds"
 } else {
-  "/srv/shiny-server/data/merged_sing_df.rds"
+  "/srv/shiny-server/data/example_data_neotrio_neopele.rds"
 }
 merged_sing_df <- readRDS(EXAMPLE_DATA)
 
@@ -19,6 +20,36 @@ gmt_path <- if (file.exists("/srv/shiny-server/data/20251505_240genelist_withphe
 gmt_data_show <- read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
 
 server <- function(input, output, session) {
+
+  version <- reactive({
+    readLines("www/version.txt", warn = FALSE)[1]
+  })
+
+  last_updated <- reactive({
+    file.info("www/version.txt")$mtime |> format("%d %b %Y %H:%M")
+  })
+
+  output$app_version <- renderUI({
+    HTML(glue::glue('
+      <a href="www/version.txt"
+         title="Last updated: {last_updated()}"
+         target="_blank"
+         style="
+           text-decoration: none;
+           background-color: #e6f3f7;
+           color: #29A3C1;
+           font-size: 12px;
+           padding: 4px 10px;
+           border-radius: 4px;
+           font-weight: bold;
+           margin-right: 10px;
+           border: 1px solid #29A3C1;
+           box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+         ">
+         {version()}
+      </a>
+    '))
+  })
 
   tryCatch({
   # Example DataFrames
@@ -265,9 +296,9 @@ server <- function(input, output, session) {
   })
   
   output$sampleDistributionPlot <- renderPlot({
-    shiny::req(selected_data(), input$comparison)
+    shiny::req(filtered_data(), input$comparison)
 
-    data <- selected_data()
+    data <- filtered_data()
 
     data <- data %>%
       distinct(study, Timepoint, Comparison, sample_id, .keep_all = TRUE)
@@ -348,42 +379,6 @@ server <- function(input, output, session) {
   })
 
 
-  output$mutationPieChart <- renderPlotly({
-    shiny::req(selected_data())
-
-    data <- selected_data()
-
-    validate(
-      need(all(c("sample_id", "Mutation") %in% colnames(data)), "Missing required columns for mutation pie chart")
-    )
-
-    mutation_summary <- data %>%
-      mutate(PatientID = sub("_S[0-9]+$", "", sample_id)) %>%
-      distinct(PatientID, Mutation) %>%
-      group_by(Mutation) %>%
-      summarise(Count = dplyr::n(), .groups = "drop")
-
-    n_colors <- nrow(mutation_summary)
-    palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")
-    if (n_colors > 8) {
-      palette <- grDevices::colorRampPalette(palette)(n_colors)
-    }
-
-    plotly::plot_ly(
-      mutation_summary,
-      labels = ~Mutation,
-      values = ~Count,
-      type = 'pie',
-      textinfo = 'label+percent',
-      insidetextorientation = 'radial',
-      marker = list(colors = palette)
-    ) %>%
-      layout(
-        title = "",
-        showlegend = TRUE,
-        margin = list(l = 0, r = 0, b = 0, t = 30)
-      )
-  })
   
   
   observe({
@@ -391,7 +386,7 @@ server <- function(input, output, session) {
       output[[paste0("plot_", path)]] <- renderPlot({
         
         # Filter data for the selected pathway
-        data <- selected_data() %>% filter(Pathway == path)
+        data <- filtered_data() %>% filter(Pathway == path)
         
         # --- DEBUGGING POINT ---
         print(paste0("Pathway: ", path))
@@ -539,19 +534,155 @@ server <- function(input, output, session) {
     })
   })
   
-  # Render Selection Singscore Data Table
-  output$dataTable <- DT::renderDataTable({
-  dat <- selected_data()[, !(names(selected_data()) %in% c("MPRvNMPR", "X"))]
-  dat <- cbind(" " = "", dat)  # Add blank first column for checkboxes
+  # === Reactive Values and Reset Handling ===
+cohorts <- reactiveValues(groups = list())
+current_selection <- reactiveVal(NULL)
+
+# === Track selected rows reactively ===
+observe({
+  selected <- input$selected_rows
+  if (!is.null(selected) && length(selected) > 0) {
+    current_selection(selected)
+  }
+})
+
+# === Create Cohort from Selected Rows ===
+observeEvent(input$createCohort, {
+  selected <- current_selection()
+  if (is.null(selected) || length(selected) == 0) {
+    showNotification("No samples selected to create a cohort.", type = "error")
+    return(NULL)
+  }
+
+  cohort_name <- input$cohortNameInput
+  if (cohort_name == "") {
+    showNotification("Please enter a cohort name.", type = "error")
+    return(NULL)
+  }
+
+  if (cohort_name %in% names(cohorts$groups)) {
+    showNotification("Cohort name already exists. Choose a different name.", type = "error")
+    return(NULL)
+  }
+
+  selected_df <- selected_data()[selected + 1, ]
+  cohorts$groups[[cohort_name]] <- selected_df
+
+  updateSelectInput(session, "selectedCohort", choices = c("All Samples", names(cohorts$groups)))
+  showNotification(paste("Cohort", cohort_name, "created successfully!"), type = "message")
+})
+
+# === Delete Cohort ===
+observeEvent(input$deleteCohort, {
+  cohort_name <- input$selectedCohort
+  if (cohort_name %in% names(cohorts$groups)) {
+    cohorts$groups[[cohort_name]] <- NULL
+    updateSelectInput(session, "selectedCohort", choices = c("All Samples", names(cohorts$groups)))
+    showNotification(paste("Cohort", cohort_name, "deleted successfully!"), type = "message")
+  } else {
+    showNotification("Cohort not found.", type = "error")
+  }
+})
+
+# === Reset View to All Samples ===
+observeEvent(input$resetCohortSelection, {
+  updateSelectInput(session, "selectedCohort", selected = "All Samples")
+})
+
+# === Return the filtered dataset ===
+filtered_data <- reactive({
+  if (input$selectedCohort == "All Samples" || is.null(input$selectedCohort)) {
+    selected_data()
+  } else {
+    cohorts$groups[[input$selectedCohort]]
+  }
+})
+
+# === Mutation Pie Chart ===
+output$mutationPieChart <- renderPlotly({
+  shiny::req(filtered_data())
+  data <- filtered_data()
+  validate(need(all(c("sample_id", "Mutation") %in% colnames(data)), "Missing required columns for mutation pie chart"))
+
+  mutation_summary <- data %>%
+    mutate(PatientID = sub("_S[0-9]+$", "", sample_id)) %>%
+    distinct(PatientID, Mutation) %>%
+    group_by(Mutation) %>%
+    summarise(Count = dplyr::n(), .groups = "drop")
+
+  n_colors <- nrow(mutation_summary)
+  palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")
+  if (n_colors > 8) {
+    palette <- grDevices::colorRampPalette(palette)(n_colors)
+  }
+
+  plotly::plot_ly(
+    mutation_summary,
+    labels = ~Mutation,
+    values = ~Count,
+    type = 'pie',
+    textinfo = 'label+percent',
+    insidetextorientation = 'radial',
+    marker = list(colors = palette)
+  ) %>%
+    layout(
+      title = "",
+      showlegend = TRUE,
+      margin = list(l = 0, r = 0, b = 0, t = 30)
+    )
+})
+
+# === Nodal Site Pie Chart ===
+output$nodalSitePieChart <- renderPlotly({
+  shiny::req(filtered_data())
+  data <- filtered_data()
+  validate(need(all(c("sample_id", "nodal_site") %in% colnames(data)), "Missing required columns for nodal site pie chart"))
+
+  nodal_map <- c("1" = "neck", "2" = "axilla", "3" = "groin")
+  nodal_summary <- data %>%
+    mutate(PatientID = sub("_S[0-9]+$", "", sample_id),
+           nodal_site = as.character(nodal_site),
+           nodal_site = nodal_map[nodal_site]) %>%
+    distinct(PatientID, nodal_site) %>%
+    group_by(nodal_site) %>%
+    summarise(Count = dplyr::n(), .groups = "drop")
+
+  n_colors <- nrow(nodal_summary)
+  palette <- RColorBrewer::brewer.pal(min(n_colors, 8), "Set2")
+  if (n_colors > 8) {
+    palette <- grDevices::colorRampPalette(palette)(n_colors)
+  }
+
+  plotly::plot_ly(
+    nodal_summary,
+    labels = ~nodal_site,
+    values = ~Count,
+    type = 'pie',
+    textinfo = 'label+percent',
+    insidetextorientation = 'radial',
+    marker = list(colors = palette)
+  ) %>%
+    layout(
+      title = "",
+      showlegend = TRUE,
+      margin = list(l = 0, r = 0, b = 0, t = 30)
+    )
+})
+
+# === Data Table Update ===
+output$dataTable <- DT::renderDataTable({
+  dat <- filtered_data()[, !(names(filtered_data()) %in% c("MPRvNMPR", "X"))]
+  dat <- cbind(" " = "", dat)
 
   DT::datatable(
     dat,
     extensions = "Select",
     selection = "none",
     options = list(
-      pageLength = 10,  # Default display
+      pageLength = 10,
       lengthMenu = list(c(10, 25, 50, 100, -1), c('10', '25', '50', '100', 'All')),
-      pagingType = "full_numbers",  # Adds first/last page buttons
+      pagingType = "full_numbers",
+      scrollX = TRUE,
       columnDefs = list(
         list(
           targets = 0,
@@ -563,13 +694,13 @@ server <- function(input, output, session) {
         style = "multi",
         selector = "td:first-child"
       ),
-      dom = 'Blfrtip'
+      dom = 'Blfrtip',
+      buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
     ),
     rownames = FALSE,
     class = 'display',
     callback = JS(
       "
-      // Add select all checkbox to header
       table.on('draw', function() {
         var checkbox = '<input type=\"checkbox\" id=\"select-all\">';
         if (!$('#select-all').length) {
@@ -577,7 +708,6 @@ server <- function(input, output, session) {
         }
       });
 
-      // Handle select all click
       $(document).on('click', '#select-all', function() {
         if (this.checked) {
           table.rows().select();
@@ -586,7 +716,6 @@ server <- function(input, output, session) {
         }
       });
 
-      // Keep Shiny in sync
       table.on('select deselect', function() {
         var indexes = table.rows({ selected: true }).indexes().toArray();
         Shiny.setInputValue('selected_rows', indexes);
@@ -596,44 +725,66 @@ server <- function(input, output, session) {
   )
 })
 
-cohorts <- reactiveValues(groups = list())
+output$cohortSelectInput <- renderUI({
+  selectInput("selectedCohort", NULL, choices = c("All Samples", names(cohorts$groups)), selected = "All Samples")
+})
+
+# Update cohort count
+output$cohortCount <- renderText({
+  paste0("(n = ", length(cohorts$groups), ")")
+})
 
 # === Create Cohort from Selected Rows ===
 observeEvent(input$createCohort, {
-  selected <- input$selected_rows
-  
+  selected <- current_selection()
+
   if (is.null(selected) || length(selected) == 0) {
     showNotification("No samples selected to create a cohort.", type = "error")
     return(NULL)
   }
 
   cohort_name <- input$cohortNameInput
-  if (cohort_name %in% names(cohorts$groups)) {
-    showNotification("Cohort name already exists. Choose a different name.", type = "error")
+
+  if (cohort_name == "") {
+    showNotification("Please enter a cohort name.", type = "error")
     return(NULL)
   }
+  
+  # Subset and store
+  selected_df <- selected_data()[selected + 1, ]
+  cohorts$groups[[cohort_name]] <- selected_df
 
-  # Subset data based on selected row indices
-  cohort_data <- selected_data()[selected + 1, ]  # Add 1 since JS is 0-indexed
-  cohorts$groups[[cohort_name]] <- cohort_data
-
-  # Update dropdown menu
-  updateSelectInput(session, "selectedCohort", choices = names(cohorts$groups))
+  # Update dropdown (with 'All Samples' manually inserted)
+  updateSelectInput(session, "selectedCohort", choices = c("All Samples", names(cohorts$groups)))
   showNotification(paste("Cohort", cohort_name, "created successfully!"), type = "message")
 })
-  
-  # === Delete Cohort ===
-  observeEvent(input$deleteCohort, {
-    cohort_name <- input$selectedCohort
-    if (cohort_name %in% names(cohorts$groups)) {
-      cohorts$groups[[cohort_name]] <- NULL
-      updateSelectInput(session, "selectedCohort", choices = names(cohorts$groups))
-      showNotification(paste("Cohort", cohort_name, "deleted successfully!"), type = "message")
-    } else {
-      showNotification("Cohort not found.", type = "error")
-    }
-  })
-  
+
+output$cohortSelectUI <- renderUI({
+  cohort_count <- length(cohorts$groups)
+  selectInput(
+    inputId = "selectedCohort",
+    label = paste0("Select Custom Cohort (n = ", cohort_count, ")"),
+    choices = c("All Samples", names(cohorts$groups)),
+    selected = "All Samples"
+  )
+})
+
+# === Delete Cohort ===
+observeEvent(input$deleteCohort, {
+  cohort_name <- input$selectedCohort
+  if (cohort_name %in% names(cohorts$groups)) {
+    cohorts$groups[[cohort_name]] <- NULL
+    updateSelectInput(session, "selectedCohort", choices = names(cohorts$groups))
+    showNotification(paste("Cohort", cohort_name, "deleted successfully!"), type = "message")
+  } else {
+    showNotification("Cohort not found.", type = "error")
+  }
+})
+
+observeEvent(input$resetCohortSelection, {
+  updateSelectInput(session, "selectedCohort", selected = "All Samples")
+})
+              
   # Download all plots as a ZIP
   output$downloadPlot <- downloadHandler(
     filename = function() {
@@ -654,7 +805,7 @@ observeEvent(input$createCohort, {
         plot_path <- file.path(temp_dir, paste0(safe_path, ".png"))
         
         # Filter data for the selected pathway
-        data <- selected_data() %>% filter(Pathway == path)
+        data <- filtered_data() %>% filter(Pathway == path)
         
         # Skip if data is empty
         if (nrow(data) == 0) {
@@ -812,7 +963,7 @@ observeEvent(input$createCohort, {
       if (!is.null(cohort_name) && cohort_name %in% names(cohorts$groups)) {
         cohort_data <- cohorts$groups[[cohort_name]]
       } else {
-        cohort_data <- selected_data()
+        cohort_data <- filtered_data()
       }
       
       # ===  Filter by Timepoint
@@ -1019,7 +1170,7 @@ observeEvent(input$createCohort, {
       paste("Pathway_Enrichment_Data_", paste(input$pathway, collapse = "_"), ".csv", sep = "")
     },
     content = function(file) {
-      write.csv(selected_data(), file, row.names = FALSE)
+      write.csv(filtered_data(), file, row.names = FALSE)
     }
   )
   
@@ -1040,6 +1191,93 @@ observeEvent(input$createCohort, {
     total <- length(unique(merged_sing_df$Pathway))
     paste("Selected", length(input$pathway), "of", total, "Signatures")
   })
+
+  output$cohortSelectSurvivalUI <- renderUI({
+  cohort_count <- length(cohorts$groups)
+  
+  shinyWidgets::pickerInput(
+    inputId = "selectedSurvivalCohort",
+    label = paste0("Select Custom Cohort (n = ", cohort_count, ")"),
+    choices = c("All Samples", names(cohorts$groups)),
+    selected = "All Samples",
+    multiple = TRUE,
+    options = list(
+      `live-search` = TRUE
+    )
+  )
+})
+
+observeEvent(input$runSurvival, {
+  req(filtered_data(), input$selectedSurvivalCohort)
+
+  # === Dynamically merge custom cohorts ===
+  if (is.null(input$selectedSurvivalCohort) || "All Samples" %in% input$selectedSurvivalCohort) {
+    data <- selected_data()
+  } else {
+    selected_cohorts <- input$selectedSurvivalCohort
+    data_list <- lapply(selected_cohorts, function(cohort_name) {
+      df <- cohorts$groups[[cohort_name]]
+      df$Group <- cohort_name  # Tag each row with its cohort
+      return(df)
+    })
+    data <- dplyr::bind_rows(data_list)
+  }
+
+  # === Apply study filter ===
+  if (input$studySurv != "All") {
+    data <- data %>% filter(study == input$studySurv)
+  }
+
+  # === Recode binary response ===
+  if ("MPRvNMPR" %in% colnames(data)) {
+    data <- data %>%
+      mutate(Response_comparison = dplyr::case_when(
+        MPRvNMPR == 1 ~ "MPRs",
+        MPRvNMPR == 0 ~ "NMPRs",
+        TRUE ~ NA_character_
+      ))
+  }
+
+  # === Determine grouping variable ===
+  group_col <- dplyr::case_when(
+  input$groupingVariable == "Custom Group" ~ "Group",
+  input$groupingVariable == "Response"     ~ "Response_comparison",
+  input$groupingVariable == "Mutation"     ~ "Mutation"
+)
+
+# Run survival analysis using tidy eval
+surv_data_input <- run_survival_analysis(
+  data = data,
+  survival_type = input$survivalTime,
+  group_col = group_col
+)
+
+print("surv data input")
+print(surv_data_input)
+
+surv_plot <- plotly_survival(
+      surv_fit = surv_data_input$fit,
+      data = surv_data_input$data,
+      survival_type = input$survivalTime,
+      group_col = group_col,
+      pval_txt = surv_data_input$pval_txt
+    )
+
+print("printing survplot obj")
+
+output$kmPlot <- renderPlot({
+   surv_plot$plot
+})
+
+output$riskTable <- renderPlot({
+  surv_plot$risk_table
+})
+
+
+})
+
+
+
   },
    error = function(e) {
     print(paste("SERVER ERROR:", e$message))

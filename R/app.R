@@ -15,6 +15,9 @@ library(tidyverse)
 library(biomaRt)
 library(GSEABase)
 library(SummarizedExperiment)
+library(survival)
+library(survminer)
+library(GGally)
 
 options(shiny.trace = TRUE)      # Enables Shiny trace logging
 options(shiny.autoreload = TRUE) 
@@ -22,6 +25,7 @@ options(shiny.autoreload = TRUE)
 source("preprocess_data.R")
 source("ui.R")
 source("server.R")
+source("survival.R")
 
 ### run 
 shinyApp(ui = ui, server = server)

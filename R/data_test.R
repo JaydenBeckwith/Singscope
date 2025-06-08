@@ -1,7 +1,7 @@
 # === Load the data ===
-singscores <- read.csv("data/neopele_neotrioalone_singscores_2025.csv")
-metadata <- read.csv("data/neopele_neotrioalone_meta.csv")
-metadata <- metadata %>% dplyr::select(-X)
+singscores <- read.csv("../data/neopele_neotrioalone_singscores_2025.csv")
+metadata <- read.csv("../data/neopele_neotrio_clinical_data.csv")
+#metadata <- metadata %>% dplyr::select(-X)
 metadata
 
 # === Data Transformation ===

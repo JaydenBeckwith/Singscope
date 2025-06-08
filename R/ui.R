@@ -16,7 +16,11 @@ rds_path <- if (file.exists("merged_sing_df.rds")) {
 merged_sing_df <- readRDS(rds_path)
 
 ui <- navbarPage(
-   div("Singscope", style = "font-size: 24px; font-weight: bold;"),
+  title = div(
+    img(src = "singscope_logo.png", height = "20px", style = "margin-right: 10px;"),
+    uiOutput("app_version"),  # reactive version badge
+    style = "display: flex; align-items: center; height: 100%;"
+  ),
   theme = shinytheme("sandstone"),
   id = "mainTabs",
   useShinyjs(),
@@ -35,7 +39,6 @@ ui <- navbarPage(
       color: #a08760;
       border-color: #a08760;
     }")),
-    ### starts the zoom at 80% upon boot up 
     tags$script(HTML("
       document.addEventListener('DOMContentLoaded', function() {
         document.body.style.zoom = '80%';
@@ -52,7 +55,7 @@ ui <- navbarPage(
           h3("Import Data"),
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
-          fileInput("metadata", "Upload Metadata (.csv, .tsv)", accept = c(".csv", ".tsv")),
+          fileInput("metadata", "Upload Clinical Data (.csv, .tsv)", accept = c(".csv", ".tsv")),
           checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
           actionButton("submitData", "Submit Data"),
           br(),
@@ -97,12 +100,14 @@ ui <- navbarPage(
             selectInput("study", "Select Study", choices = c("All", unique(merged_sing_df$study))),
             selectInput("comparison", "Select Comparison Type", choices = c("Response Status" = "Response", "Recurrence Status" = "Recurrence Status", "Dynamics by Response" = "Dynamics_Response", "Dynamics by Recurrence" = "Dynamics_Recurrence")),
             selectInput("timepoint", "Select Timepoint", choices = c("Both", "Baseline", "Week 6")),
-            textInput("cohortNameInput", "Cohort Name", value = "MyCohort"),
-            selectInput("selectedCohort", "Select Cohort", choices = NULL, multiple = FALSE),
-            textOutput("cohortCount"),
-            div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
-                actionButton("createCohort", "Create Cohort"),
-                actionButton("deleteCohort", "Delete Cohort")),
+            textInput("cohortNameInput", "Cohort Name", value = "", placeholder = "Please enter your custom cohort name"),
+            uiOutput("cohortSelectUI"),
+
+          div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
+              actionButton("createCohort", "Create Cohort"),
+              actionButton("deleteCohort", "Delete Cohort"),
+              actionButton("resetCohortSelection", "Reset View")
+          ),
             div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
                 downloadButton("downloadPlot", "Download Plots"),
                 downloadButton("downloadTable", "Download Table")),
@@ -124,9 +129,13 @@ ui <- navbarPage(
           )
         ),
         fluidRow(
-          column(12,
+          column(6,
                 h3("Mutation Distribution"),
-                withSpinner(plotlyOutput("mutationPieChart", height = "550px"))
+                withSpinner(plotlyOutput("mutationPieChart", height = "500px"))
+          ),
+          column(6,
+                h3("Nodal Site Distribution"),
+                withSpinner(plotlyOutput("nodalSitePieChart", height = "500px"))
           )
         ),
         h3("Selected Sample Data"),
@@ -176,7 +185,7 @@ ui <- navbarPage(
     )
   ),
   
-  tabPanel(
+    tabPanel(
     "Survival Analysis",
     fluidRow(
       column(12, actionButton("toggleSurvivalSidebar", HTML("&#9776;"), class = "hamburger-btn"))
@@ -184,17 +193,18 @@ ui <- navbarPage(
     sidebarLayout(
       div(id = "survivalSidebar",
           sidebarPanel(
-            selectInput("survivalTime", "Select Time Variable", choices = c("time_to_event")),
-            selectInput("survivalEvent", "Select Event Variable", choices = c("event")),
+            selectInput("survivalTime", "Select Type of Analysis", choices = c("OS", "RFS", "EFS", "MSS")),
             selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
-            selectInput("timepointSurv", "Filter by Timepoint", choices = c("Both", "Baseline", "Week 6")),
             selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
+            uiOutput("cohortSelectSurvivalUI"),
             actionButton("runSurvival", "Run Survival Analysis")
           )
       ),
       mainPanel(
         h3("Kaplan-Meier Survival Curve"),
-        plotlyOutput("kmPlot", height = "500px")
+        plotOutput("kmPlot", height = "500px"),
+        h3("Risk Table"),
+        plotOutput("riskTable", height = "300px")
       )
     )
   )
