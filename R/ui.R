@@ -100,12 +100,14 @@ ui <- navbarPage(
             selectInput("study", "Select Study", choices = c("All", unique(merged_sing_df$study))),
             selectInput("comparison", "Select Comparison Type", choices = c("Response Status" = "Response", "Recurrence Status" = "Recurrence Status", "Dynamics by Response" = "Dynamics_Response", "Dynamics by Recurrence" = "Dynamics_Recurrence")),
             selectInput("timepoint", "Select Timepoint", choices = c("Both", "Baseline", "Week 6")),
-            textInput("cohortNameInput", "Cohort Name", value = "MyCohort"),
-            selectInput("selectedCohort", "Select Cohort", choices = NULL, multiple = FALSE),
-            textOutput("cohortCount"),
-            div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
-                actionButton("createCohort", "Create Cohort"),
-                actionButton("deleteCohort", "Delete Cohort")),
+            textInput("cohortNameInput", "Cohort Name", value = "", placeholder = "Please enter your custom cohort name"),
+            uiOutput("cohortSelectUI"),
+
+          div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
+              actionButton("createCohort", "Create Cohort"),
+              actionButton("deleteCohort", "Delete Cohort"),
+              actionButton("resetCohortSelection", "Reset View")
+          ),
             div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
                 downloadButton("downloadPlot", "Download Plots"),
                 downloadButton("downloadTable", "Download Table")),
@@ -183,7 +185,7 @@ ui <- navbarPage(
     )
   ),
   
-  tabPanel(
+    tabPanel(
     "Survival Analysis",
     fluidRow(
       column(12, actionButton("toggleSurvivalSidebar", HTML("&#9776;"), class = "hamburger-btn"))
@@ -191,17 +193,18 @@ ui <- navbarPage(
     sidebarLayout(
       div(id = "survivalSidebar",
           sidebarPanel(
-            selectInput("survivalTime", "Select Time Variable", choices = c("OS","RFS","MSS")),
-            selectInput("survivalEvent", "Select Event Variable", choices = c("event")),
+            selectInput("survivalTime", "Select Type of Analysis", choices = c("OS", "RFS", "EFS", "MSS")),
             selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
-            selectInput("timepointSurv", "Filter by Timepoint", choices = c("Both", "Baseline", "Week 6")),
             selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
+            uiOutput("cohortSelectSurvivalUI"),
             actionButton("runSurvival", "Run Survival Analysis")
           )
       ),
       mainPanel(
         h3("Kaplan-Meier Survival Curve"),
-        plotlyOutput("kmPlot", height = "500px")
+        plotOutput("kmPlot", height = "500px"),
+        h3("Risk Table"),
+        plotOutput("riskTable", height = "300px")
       )
     )
   )
