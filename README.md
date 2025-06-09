@@ -4,7 +4,7 @@
   <img src="https://github.com/user-attachments/assets/4b44ca28-5031-4d1b-b5a2-ef057ebf8b44" alt="Singscope logo" width="400"/>
 </p>
 
-An interactive Shiny application for analysing bulk RNA signatures, conducting data analytics and supporting clinical stratification of melanoma patient cohorts.
+An interactive Shiny application for analysing bulk RNA signatures and supporting clinical stratification of melanoma patient cohorts.
 ---
 
 ## Features
