@@ -229,7 +229,7 @@ server <- function(input, output, session) {
     }
     
     # Subset by timepoint if not "Both"
-    if (input$timepoint != "Both") {
+    if (input$timepoint != "All") {
       data <- data %>% filter(Timepoint == input$timepoint)
     }
     
@@ -584,12 +584,8 @@ observeEvent(input$deleteCohort, {
   }
 })
 
-# === Reset View to All Samples ===
-observeEvent(input$resetCohortSelection, {
-  updateSelectInput(session, "selectedCohort", selected = "All Samples")
-})
 
-# === Return the filtered dataset ===
+# Return the filtered dataset 
 filtered_data <- reactive({
   if (input$selectedCohort == "All Samples" || is.null(input$selectedCohort)) {
     selected_data()
@@ -598,7 +594,7 @@ filtered_data <- reactive({
   }
 })
 
-# === Mutation Pie Chart ===
+#  Mutation Pie Chart 
 output$mutationPieChart <- renderPlotly({
   shiny::req(filtered_data())
   data <- filtered_data()
@@ -632,7 +628,7 @@ output$mutationPieChart <- renderPlotly({
     )
 })
 
-# === Nodal Site Pie Chart ===
+# Nodal Site Pie Chart 
 output$nodalSitePieChart <- renderPlotly({
   shiny::req(filtered_data())
   data <- filtered_data()
@@ -669,7 +665,7 @@ output$nodalSitePieChart <- renderPlotly({
     )
 })
 
-# === Data Table Update ===
+#  Data Table Sample Runner 
 output$dataTable <- DT::renderDataTable({
   dat <- filtered_data()[, !(names(filtered_data()) %in% c("MPRvNMPR", "X"))]
   dat <- cbind(" " = "", dat)
@@ -734,7 +730,7 @@ output$cohortCount <- renderText({
   paste0("(n = ", length(cohorts$groups), ")")
 })
 
-# === Create Cohort from Selected Rows ===
+# Create Cohort from Selected Rows 
 observeEvent(input$createCohort, {
   selected <- current_selection()
 
@@ -769,7 +765,7 @@ output$cohortSelectUI <- renderUI({
   )
 })
 
-# === Delete Cohort ===
+# Delete Cohort 
 observeEvent(input$deleteCohort, {
   cohort_name <- input$selectedCohort
   if (cohort_name %in% names(cohorts$groups)) {
@@ -797,7 +793,7 @@ observeEvent(input$resetCohortSelection, {
       
       # Loop through each selected pathway and generate the plot
       lapply(input$pathway, function(path) {
-        # Sanitize the filename: remove or replace problematic characters
+        # Sanitise the filename: remove or replace problematic characters
         safe_path <- gsub("[:/\\*?\"<>|]", "-", path)  # replaces forbidden characters with "-"
         safe_path <- gsub("\\s+", "_", safe_path)      # replace spaces with underscores
         
@@ -967,7 +963,7 @@ observeEvent(input$resetCohortSelection, {
       }
       
       # ===  Filter by Timepoint
-      if (input$timepoint != "Both") {
+      if (input$timepoint != "All") {
         cohort_data <- cohort_data %>% filter(Timepoint == input$timepoint)
       }
       
@@ -1001,7 +997,7 @@ observeEvent(input$resetCohortSelection, {
     }
     
     # === Filter by Timepoint
-    if (timepoint_name != "Both") {
+    if (timepoint_name != "All") {
       cohort_data <- cohort_data %>% filter(Timepoint == timepoint_name)
     }
     
@@ -1210,7 +1206,7 @@ observeEvent(input$resetCohortSelection, {
 observeEvent(input$runSurvival, {
   req(filtered_data(), input$selectedSurvivalCohort)
 
-  # === Dynamically merge custom cohorts ===
+  # Dynamically merge custom cohorts 
   if (is.null(input$selectedSurvivalCohort) || "All Samples" %in% input$selectedSurvivalCohort) {
     data <- selected_data()
   } else {
@@ -1223,12 +1219,12 @@ observeEvent(input$runSurvival, {
     data <- dplyr::bind_rows(data_list)
   }
 
-  # === Apply study filter ===
+  # Apply study filter 
   if (input$studySurv != "All") {
     data <- data %>% filter(study == input$studySurv)
   }
 
-  # === Recode binary response ===
+  #  Recode binary response 
   if ("MPRvNMPR" %in% colnames(data)) {
     data <- data %>%
       mutate(Response_comparison = dplyr::case_when(
@@ -1238,7 +1234,7 @@ observeEvent(input$runSurvival, {
       ))
   }
 
-  # === Determine grouping variable ===
+  # Determine grouping variable 
   group_col <- dplyr::case_when(
   input$groupingVariable == "Custom Group" ~ "Group",
   input$groupingVariable == "Response"     ~ "Response_comparison",
@@ -1252,8 +1248,13 @@ surv_data_input <- run_survival_analysis(
   group_col = group_col
 )
 
-print("surv data input")
-print(surv_data_input)
+max_time <- ceiling(max(surv_data_input$data$time, na.rm = TRUE))
+
+output$timeSliderUI <- renderUI({
+    sliderInput("time_range", "Filter Time Range (Months)",
+                min = 0, max = max_time, value = c(0, max_time), step = 1)
+  })
+
 
 surv_plot <- plotly_survival(
       surv_fit = surv_data_input$fit,
@@ -1263,14 +1264,18 @@ surv_plot <- plotly_survival(
       pval_txt = surv_data_input$pval_txt
     )
 
-print("printing survplot obj")
 
-output$kmPlot <- renderPlot({
+
+output$kmPlot <- plotly::renderPlotly({
    surv_plot$plot
 })
 
 output$riskTable <- renderPlot({
   surv_plot$risk_table
+})
+
+output$censorTable <- renderPlot({
+  surv_plot$censor_plot
 })
 
 
