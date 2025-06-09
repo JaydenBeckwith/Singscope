@@ -99,14 +99,13 @@ ui <- navbarPage(
                         selected = unique(merged_sing_df$Pathway)[1], multiple = TRUE, options = list(`actions-box` = TRUE)),
             selectInput("study", "Select Study", choices = c("All", unique(merged_sing_df$study))),
             selectInput("comparison", "Select Comparison Type", choices = c("Response Status" = "Response", "Recurrence Status" = "Recurrence Status", "Dynamics by Response" = "Dynamics_Response", "Dynamics by Recurrence" = "Dynamics_Recurrence")),
-            selectInput("timepoint", "Select Timepoint", choices = c("Both", "Baseline", "Week 6")),
+            selectInput("timepoint", "Select Timepoint", choices = c("All", "Baseline", "Week 6")),
             textInput("cohortNameInput", "Cohort Name", value = "", placeholder = "Please enter your custom cohort name"),
             uiOutput("cohortSelectUI"),
 
           div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
               actionButton("createCohort", "Create Cohort"),
-              actionButton("deleteCohort", "Delete Cohort"),
-              actionButton("resetCohortSelection", "Reset View")
+              actionButton("deleteCohort", "Delete Cohort")
           ),
             div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
                 downloadButton("downloadPlot", "Download Plots"),
@@ -157,7 +156,7 @@ ui <- navbarPage(
           sidebarPanel(
             h4("Correlation Settings"),
             selectInput("correlationMethod", "Correlation Method", choices = c("pearson", "spearman", "kendall")),
-            selectInput("timepointFilter", "Timepoint", choices = c("Both", "Baseline", "Week 6")),
+            selectInput("timepointFilter", "Timepoint", choices = c("All", "Baseline", "Week 6")),
             selectInput("cohortFilter", "Cohort", choices = c("All", unique(merged_sing_df$study))),
             actionButton("computeCorrelation", "Compute Correlation", class = "btn-primary"),
             tags$hr(), h4("Temporal Trajectory Analysis"),
@@ -202,9 +201,11 @@ ui <- navbarPage(
       ),
       mainPanel(
         h3("Kaplan-Meier Survival Curve"),
-        plotOutput("kmPlot", height = "500px"),
+        plotlyOutput("kmPlot", height = "500px"),
         h3("Risk Table"),
-        plotOutput("riskTable", height = "300px")
+        plotOutput("riskTable", height = "300px"),
+        h3("Censor Table"),
+        plotOutput("censorTable", height = "300px")
       )
     )
   )

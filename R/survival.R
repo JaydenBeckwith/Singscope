@@ -23,7 +23,7 @@ run_survival_analysis <- function(data, survival_type = c("OS", "RFS", "EFS", "M
   if (is.numeric(data[[col]])) {
     data[[col]] <- as.Date(data[[col]], origin = "1899-12-30")
   } else {
-    # Try parsing string dates like "2020-01-01"
+    
     data[[col]] <- as.Date(data[[col]])
   }
 }
@@ -99,22 +99,62 @@ run_survival_analysis <- function(data, survival_type = c("OS", "RFS", "EFS", "M
 plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt) {
   group_col <- as.character(group_col)
 
+  xmax <- quantile(data$time, 0.95, na.rm = TRUE)
+
   ggs <- survminer::ggsurvplot(
     fit = surv_fit,
     data = data,
     risk.table = TRUE,
-    pval = pval_txt,
+    ncensor.plot = TRUE,  
+    pval = FALSE,
     legend.title = group_col,
     xlab = "Months",
     ylab = paste("Survival Probability -", survival_type),
     censor.shape = "|",
     censor.size = 3,
+    risk.table.y.text.col = TRUE,
     palette = "Set1",
-    ggtheme = theme_minimal()
+    conf.int.style = "step",  # customize style of confidence intervals
+    surv.median.line = "hv",  # add the median survival pointer
+    ggtheme = theme_minimal(),
+    xlim = c(0, xmax)
   )
 
+  # Modify main plot text size
+  ggs$plot <- ggs$plot +  labs(title = pval_txt) +
+  theme(
+    legend.position = "none",
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 16),
+    plot.title = element_text(size = 18, face = "bold")
+  )
+
+  plotly_plot <- plotly::ggplotly(ggs$plot)
+
+
+  ggs$table <- ggs$table +
+    theme(
+      axis.title = element_text(size = 18),
+      axis.text = element_text(size = 18),
+      legend.title = element_text(size = 16),
+      legend.text = element_text(size = 16),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5)
+    )
+
+  ggs$ncensor.plot <- ggs$ncensor.plot + theme(
+      legend.position = "bottom",
+      axis.title = element_text(size = 18),
+      axis.text = element_text(size = 18),
+      legend.title = element_text(size = 16),
+      legend.text = element_text(size = 16),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5)
+    )
+
   return(list(
-    plot = ggs$plot,
-    risk_table = ggs$table
+    plot = plotly_plot,
+    risk_table = ggs$table,
+    censor_plot = ggs$ncensor.plot
   ))
 }
