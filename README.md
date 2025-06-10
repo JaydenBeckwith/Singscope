@@ -24,7 +24,7 @@ An interactive Shiny application for analysing bulk RNA signatures and supportin
 1. **Clone this repo**
 
    ```bash
-   git clone https://github.com/yourusername/Singscope.git
+   git clone https://github.com/JaydenBeckwith/Singscope.git
    cd Singscope
    ```
 
