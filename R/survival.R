@@ -93,8 +93,6 @@ run_survival_analysis <- function(data, survival_type = c("OS", "RFS", "EFS", "M
 
 }
 
-
-
 # === Render Plot Wrapper ===
 plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt) {
   group_col <- as.character(group_col)
