@@ -713,8 +713,12 @@ output$dataTable <- DT::renderDataTable({
       });
 
       table.on('select deselect', function() {
-        var indexes = table.rows({ selected: true }).indexes().toArray();
-        Shiny.setInputValue('selected_rows', indexes);
+        var data = table.rows({ selected: true }).data();
+        var ids = [];
+        for (var i = 0; i < data.length; i++) {
+          ids.push(data[i][1]); // assumes sample_id is in column 1
+        }
+        Shiny.setInputValue('selected_sample_ids', ids);
       });
       "
     )
@@ -732,9 +736,9 @@ output$cohortCount <- renderText({
 
 # Create Cohort from Selected Rows 
 observeEvent(input$createCohort, {
-  selected <- current_selection()
+  selected_ids <- input$selected_sample_ids
 
-  if (is.null(selected) || length(selected) == 0) {
+  if (is.null(selected_ids) || length(selected_ids) == 0) {
     showNotification("No samples selected to create a cohort.", type = "error")
     return(NULL)
   }
@@ -745,12 +749,12 @@ observeEvent(input$createCohort, {
     showNotification("Please enter a cohort name.", type = "error")
     return(NULL)
   }
-  
-  # Subset and store
-  selected_df <- selected_data()[selected + 1, ]
+
+  selected_df <- filtered_data() %>%
+    dplyr::filter(sample_id %in% selected_ids)
+
   cohorts$groups[[cohort_name]] <- selected_df
 
-  # Update dropdown (with 'All Samples' manually inserted)
   updateSelectInput(session, "selectedCohort", choices = c("All Samples", names(cohorts$groups)))
   showNotification(paste("Cohort", cohort_name, "created successfully!"), type = "message")
 })
