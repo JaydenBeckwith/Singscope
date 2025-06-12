@@ -5,6 +5,7 @@ library(shinyWidgets)
 library(plotly)
 library(DT)
 library(shinycssloaders)
+library(shinyBS)
 
 
 # === Load Data ===
@@ -25,7 +26,8 @@ ui <- navbarPage(
   id = "mainTabs",
   useShinyjs(),
   tags$head(
-    tags$style(HTML(".hamburger-btn {
+  tags$style(HTML("
+    .hamburger-btn {
       background-color: #F5F5F5;
       border: 2px solid #c2b49a;
       color: #c2b49a;
@@ -38,13 +40,38 @@ ui <- navbarPage(
       background-color: #fff;
       color: #a08760;
       border-color: #a08760;
-    }")),
-    tags$script(HTML("
-      document.addEventListener('DOMContentLoaded', function() {
-        document.body.style.zoom = '80%';
-      });
-    "))
-  ),
+    }
+
+    /* Collapse header customization */
+    .panel-title a {
+      font-size: 20px !important;
+      text-align: center;
+      display: block;
+      font-weight: bold;
+      color: black !important;
+    }
+
+    .panel-heading {
+      background-color: #f5f5f5 !important;
+      border-radius: 4px;
+      padding: 10px;
+    }
+
+    .panel-title a:before {
+      content: '▶ ';
+      color: #337ab7;
+    }
+
+    .panel-title a.collapsed:before {
+      content: '▼ ';
+    }
+  ")),
+  tags$script(HTML("
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.style.zoom = '80%';
+    });
+  "))
+),
   
   tabPanel(
     "Data Import",
@@ -54,7 +81,6 @@ ui <- navbarPage(
         wellPanel(
           h3("Import Data"),
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
-          fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("metadata", "Upload Clinical Data (.csv, .tsv)", accept = c(".csv", ".tsv")),
           checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
           actionButton("submitData", "Submit Data"),
@@ -184,29 +210,83 @@ ui <- navbarPage(
     )
   ),
   
-    tabPanel(
-    "Survival Analysis",
-    fluidRow(
-      column(12, actionButton("toggleSurvivalSidebar", HTML("&#9776;"), class = "hamburger-btn"))
-    ),
-    sidebarLayout(
-      div(id = "survivalSidebar",
-          sidebarPanel(
-            selectInput("survivalTime", "Select Type of Analysis", choices = c("OS", "RFS", "EFS", "MSS")),
-            selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
-            selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
-            uiOutput("cohortSelectSurvivalUI"),
-            actionButton("runSurvival", "Run Survival Analysis")
+  tabPanel(
+  "Survival Analysis",
+  fluidRow(
+    column(12, actionButton("toggleSurvivalSidebar", HTML("&#9776;"), class = "hamburger-btn"))
+  ),
+  sidebarLayout(
+    div(id = "survivalSidebar",
+      sidebarPanel(
+        fluidRow(
+          column(10, h4("Survival Analysis Options")),
+          column(2, align = "right",
+            actionButton(
+              "openSurvivalHelp", 
+              label = NULL, 
+              icon = icon("info-circle", class = "fa-2x"),
+              style = "color: #31708f; background-color: transparent; border: none; padding-top: 10px;",
+              title = "Click for help"
+            )
           )
-      ),
-      mainPanel(
-        h3("Kaplan-Meier Survival Curve"),
-        plotlyOutput("kmPlot", height = "500px"),
-        h3("Risk Table"),
-        plotOutput("riskTable", height = "300px"),
-        h3("Censor Table"),
-        plotOutput("censorTable", height = "300px")
+        ),
+        br(),
+        selectInput("survivalTime", "Select Type of Analysis", choices = c("OS", "RFS", "EFS", "MSS")),
+        selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
+        selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
+        uiOutput("cohortSelectSurvivalUI"),
+        actionButton("runSurvival", "Run Survival Analysis", class = "btn btn-dark")
       )
+    ),
+    mainPanel(
+      h3("Kaplan-Meier Survival Curve"),
+      plotlyOutput("kmPlot", height = "500px"),
+      h3("Risk Table"),
+      plotOutput("riskTable", height = "300px"),
+      h3("Censor Table"),
+      plotOutput("censorTable", height = "300px")
     )
   )
-)
+),
+tabPanel(
+  "Help",
+  h3("Browse FAQs"),
+  br(),
+  shinyBS::bsCollapse(
+    shinyBS::bsCollapsePanel("GENE SIGNATURE REFERENCE LOOKUP",
+    p("Find the Reference used for the curated signatures"),
+      div(
+        style = "font-size: 18px; padding: 20px;",
+        fluidRow(
+          column(
+            width = 4,
+            selectInput("selectedSignatureHelp", "Choose a Signature:", choices = NULL)
+          ),
+          column(
+            width = 8,
+            uiOutput("signatureInfo")
+          )
+        )
+      ),
+      style = "info"
+    ),
+    shinyBS::bsCollapsePanel("HOW IS SURVIVAL CALCULATED?",
+      div(
+        style = "font-size: 18px; padding: 20px;",
+        p("We use Kaplan-Meier survival analysis based on selected groupings (e.g., Mutation, Response).",
+          br(),
+          "Censoring and event status are determined from clinical endpoints like OS, RFS, and EFS.")
+      ),
+      style = "default"
+    ),
+    shinyBS::bsCollapsePanel("WHAT DOES THE KM PLOT SHOW?",
+      div(
+        style = "font-size: 18px; padding: 20px;",
+        p("The Kaplan-Meier plot shows survival probabilities over time.",
+          br(),
+          "It compares subgroups (e.g., responders vs non-responders) and includes confidence intervals.")
+      ),
+      style = "default"
+    )
+  )
+))

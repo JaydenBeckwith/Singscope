@@ -19,6 +19,8 @@ gmt_path <- if (file.exists("/srv/shiny-server/data/20251505_240genelist_withphe
 
 gmt_data_show <- read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
 
+SIGNATURE_DATA <- jsonlite::fromJSON("/srv/shiny-server/data/pathway_references_with_genes.json")
+
 server <- function(input, output, session) {
 
   version <- reactive({
@@ -1283,6 +1285,55 @@ output$censorTable <- renderPlot({
 })
 
 
+})
+
+### HELP SUPORT
+observeEvent(input$openSurvivalHelp, {
+  showModal(modalDialog(
+    title = "Survival Analysis Help",
+    easyClose = TRUE,
+    size = "m",
+    tagList(
+      p("This panel allows you to perform survival analysis (Kaplan-Meier) based on selected filters:"),
+      tags$ul(
+        tags$li("OS, RFS, EFS, MSS: Select the endpoint of interest."),
+        tags$li("Group By: Choose how patients are grouped (e.g., by mutation status, treatment response)."),
+        tags$li("Study Filter: Optionally limit to specific studies."),
+        tags$li("Use custom groups to define your own cohorts if available.")
+      ),
+      p("After configuring your options, click 'Run Survival Analysis' to generate the KM plot and related tables.")
+    )
+  ))
+})
+
+
+###HELP PAGE fx
+observe({
+  updateSelectInput(session, "selectedSignatureHelp",
+                    choices = sort(names(SIGNATURE_DATA)))
+})
+
+# Display signature info
+output$signatureInfo <- renderUI({
+  req(input$selectedSignatureHelp)
+  sig <- input$selectedSignatureHelp
+  info <- SIGNATURE_DATA[[sig]]
+
+  tagList(
+    h4("Reference:"),
+    if (!is.null(info$url) && nzchar(info$url[1])) {
+      tags$a(href = info$url, target = "_blank", info$author)
+    } else {
+      tags$p(info$author)
+    },
+    br(), br(),
+    h4("Genes in Signature:"),
+    div(
+      style = "max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;",
+      tags$ul(style = "padding-left: 20px; font-size: 16px;", 
+              lapply(info$genes, function(g) tags$li(g)))
+    )
+  )
 })
 
 
