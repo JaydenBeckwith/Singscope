@@ -65,6 +65,11 @@ ui <- navbarPage(
     .panel-title a.collapsed:before {
       content: '▼ ';
     }
+
+    .shiny-output-error { visibility: hidden; }
+    .plot-container {
+        padding-bottom: 40px;
+    }
   ")),
   tags$script(HTML("
     document.addEventListener('DOMContentLoaded', function() {
@@ -120,7 +125,16 @@ ui <- navbarPage(
     sidebarLayout(
       div(id = "signatureSidebar",
           sidebarPanel(
-            textOutput("signatureCountText"), br(),
+              div(
+                style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;",
+                div(
+                  textOutput("signatureCountText"),
+                  style = "font-size: 16px;"
+                ),
+                actionButton("openSignatureHelp", label = NULL, icon = icon("info-circle"),
+                            style = "font-size: 20px; margin-top: 2px; background-color: transparent; color: #31708f; border: none;",
+                            title = "Click for help")
+              ),
             pickerInput("pathway", "Select Signatures", choices = unique(merged_sing_df$Pathway),
                         selected = unique(merged_sing_df$Pathway)[1], multiple = TRUE, options = list(`actions-box` = TRUE)),
             selectInput("study", "Select Study", choices = c("All", unique(merged_sing_df$study))),
@@ -138,6 +152,7 @@ ui <- navbarPage(
                 downloadButton("downloadTable", "Download Table")),
             div(style = "margin-bottom: 10px;",
                 downloadButton("downloadSingscoreMatrix", "Download Singscore Matrix")),
+            br(),
             h4("Genes in Selected Signature(s)"),
             uiOutput("geneList"),
             width = 3
@@ -260,7 +275,7 @@ tabPanel(
         fluidRow(
           column(
             width = 4,
-            selectInput("selectedSignatureHelp", "Choose a Signature:", choices = NULL)
+            selectizeInput("selectedSignatureHelp", "Choose a Signature:", choices = NULL)
           ),
           column(
             width = 8,
@@ -270,6 +285,20 @@ tabPanel(
       ),
       style = "info"
     ),
+    shinyBS::bsCollapsePanel("HOW IS SINGSCORE CALCULATED?",
+  div(
+    style = "font-size: 18px; padding: 20px;",
+    p("Singscore is a rank-based gene set scoring method that evaluates the expression of a predefined gene signature within a single sample."),
+    tags$ul(
+      tags$li(strong("Rank Genes:"), " All genes in the sample are ranked from lowest to highest expression."),
+      tags$li(strong("Score Signature Genes:"), " The genes in your selected signature are matched to the ranked list, and their average rank is calculated."),
+      tags$li(strong("Normalise:"), " The score is scaled based on the theoretical minimum and maximum ranks to yield a value between 0 and 1 (or -1 to 1 if using both up- and down-regulated genes)."),
+      tags$li(strong("Interpretation:"), " Higher scores indicate stronger expression of the signature genes. Lower scores suggest reduced or inverse expression.")
+    ),
+    p("This method does not require group comparisons or differential expression, making it well-suited for individual-level interpretation.")
+  ),
+  style = "default"
+),
     shinyBS::bsCollapsePanel("HOW IS SURVIVAL CALCULATED?",
       div(
         style = "font-size: 18px; padding: 20px;",
