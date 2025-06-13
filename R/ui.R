@@ -5,6 +5,7 @@ library(shinyWidgets)
 library(plotly)
 library(DT)
 library(shinycssloaders)
+library(shinyBS)
 
 
 # === Load Data ===
@@ -25,7 +26,8 @@ ui <- navbarPage(
   id = "mainTabs",
   useShinyjs(),
   tags$head(
-    tags$style(HTML(".hamburger-btn {
+  tags$style(HTML("
+    .hamburger-btn {
       background-color: #F5F5F5;
       border: 2px solid #c2b49a;
       color: #c2b49a;
@@ -38,13 +40,43 @@ ui <- navbarPage(
       background-color: #fff;
       color: #a08760;
       border-color: #a08760;
-    }")),
-    tags$script(HTML("
-      document.addEventListener('DOMContentLoaded', function() {
-        document.body.style.zoom = '80%';
-      });
-    "))
-  ),
+    }
+
+    /* Collapse header customization */
+    .panel-title a {
+      font-size: 20px !important;
+      text-align: center;
+      display: block;
+      font-weight: bold;
+      color: black !important;
+    }
+
+    .panel-heading {
+      background-color: #f5f5f5 !important;
+      border-radius: 4px;
+      padding: 10px;
+    }
+
+    .panel-title a:before {
+      content: '▶ ';
+      color: #337ab7;
+    }
+
+    .panel-title a.collapsed:before {
+      content: '▼ ';
+    }
+
+    .shiny-output-error { visibility: hidden; }
+    .plot-container {
+        padding-bottom: 40px;
+    }
+  ")),
+  tags$script(HTML("
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.style.zoom = '80%';
+    });
+  "))
+),
   
   tabPanel(
     "Data Import",
@@ -54,7 +86,6 @@ ui <- navbarPage(
         wellPanel(
           h3("Import Data"),
           fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
-          fileInput("singMatrix", "Upload Singscore Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
           fileInput("metadata", "Upload Clinical Data (.csv, .tsv)", accept = c(".csv", ".tsv")),
           checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
           actionButton("submitData", "Submit Data"),
@@ -94,7 +125,16 @@ ui <- navbarPage(
     sidebarLayout(
       div(id = "signatureSidebar",
           sidebarPanel(
-            textOutput("signatureCountText"), br(),
+              div(
+                style = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;",
+                div(
+                  textOutput("signatureCountText"),
+                  style = "font-size: 16px;"
+                ),
+                actionButton("openSignatureHelp", label = NULL, icon = icon("info-circle"),
+                            style = "font-size: 20px; margin-top: 2px; background-color: transparent; color: #31708f; border: none;",
+                            title = "Click for help")
+              ),
             pickerInput("pathway", "Select Signatures", choices = unique(merged_sing_df$Pathway),
                         selected = unique(merged_sing_df$Pathway)[1], multiple = TRUE, options = list(`actions-box` = TRUE)),
             selectInput("study", "Select Study", choices = c("All", unique(merged_sing_df$study))),
@@ -112,6 +152,7 @@ ui <- navbarPage(
                 downloadButton("downloadTable", "Download Table")),
             div(style = "margin-bottom: 10px;",
                 downloadButton("downloadSingscoreMatrix", "Download Singscore Matrix")),
+            br(),
             h4("Genes in Selected Signature(s)"),
             uiOutput("geneList"),
             width = 3
@@ -184,29 +225,97 @@ ui <- navbarPage(
     )
   ),
   
-    tabPanel(
-    "Survival Analysis",
-    fluidRow(
-      column(12, actionButton("toggleSurvivalSidebar", HTML("&#9776;"), class = "hamburger-btn"))
-    ),
-    sidebarLayout(
-      div(id = "survivalSidebar",
-          sidebarPanel(
-            selectInput("survivalTime", "Select Type of Analysis", choices = c("OS", "RFS", "EFS", "MSS")),
-            selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
-            selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
-            uiOutput("cohortSelectSurvivalUI"),
-            actionButton("runSurvival", "Run Survival Analysis")
+  tabPanel(
+  "Survival Analysis",
+  fluidRow(
+    column(12, actionButton("toggleSurvivalSidebar", HTML("&#9776;"), class = "hamburger-btn"))
+  ),
+  sidebarLayout(
+    div(id = "survivalSidebar",
+      sidebarPanel(
+        fluidRow(
+          column(10, h4("Survival Analysis Options")),
+          column(2, align = "right",
+            actionButton(
+              "openSurvivalHelp", 
+              label = NULL, 
+              icon = icon("info-circle", class = "fa-2x"),
+              style = "color: #31708f; background-color: transparent; border: none; padding-top: 10px;",
+              title = "Click for help"
+            )
           )
-      ),
-      mainPanel(
-        h3("Kaplan-Meier Survival Curve"),
-        plotlyOutput("kmPlot", height = "500px"),
-        h3("Risk Table"),
-        plotOutput("riskTable", height = "300px"),
-        h3("Censor Table"),
-        plotOutput("censorTable", height = "300px")
+        ),
+        br(),
+        selectInput("survivalTime", "Select Type of Analysis", choices = c("OS", "RFS", "EFS", "MSS")),
+        selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
+        selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
+        uiOutput("cohortSelectSurvivalUI"),
+        actionButton("runSurvival", "Run Survival Analysis", class = "btn btn-dark")
       )
+    ),
+    mainPanel(
+      h3("Kaplan-Meier Survival Curve"),
+      plotlyOutput("kmPlot", height = "500px"),
+      h3("Risk Table"),
+      plotOutput("riskTable", height = "300px"),
+      h3("Censor Table"),
+      plotOutput("censorTable", height = "300px")
     )
   )
-)
+),
+tabPanel(
+  "Help",
+  h3("Browse FAQs"),
+  br(),
+  shinyBS::bsCollapse(
+    shinyBS::bsCollapsePanel("GENE SIGNATURE REFERENCE LOOKUP",
+    p("Find the Reference used for the curated signatures"),
+      div(
+        style = "font-size: 18px; padding: 20px;",
+        fluidRow(
+          column(
+            width = 4,
+            selectizeInput("selectedSignatureHelp", "Choose a Signature:", choices = NULL)
+          ),
+          column(
+            width = 8,
+            uiOutput("signatureInfo")
+          )
+        )
+      ),
+      style = "info"
+    ),
+    shinyBS::bsCollapsePanel("HOW IS SINGSCORE CALCULATED?",
+  div(
+    style = "font-size: 18px; padding: 20px;",
+    p("Singscore is a rank-based gene set scoring method that evaluates the expression of a predefined gene signature within a single sample."),
+    tags$ul(
+      tags$li(strong("Rank Genes:"), " All genes in the sample are ranked from lowest to highest expression."),
+      tags$li(strong("Score Signature Genes:"), " The genes in your selected signature are matched to the ranked list, and their average rank is calculated."),
+      tags$li(strong("Normalise:"), " The score is scaled based on the theoretical minimum and maximum ranks to yield a value between 0 and 1 (or -1 to 1 if using both up- and down-regulated genes)."),
+      tags$li(strong("Interpretation:"), " Higher scores indicate stronger expression of the signature genes. Lower scores suggest reduced or inverse expression.")
+    ),
+    p("This method does not require group comparisons or differential expression, making it well-suited for individual-level interpretation.")
+  ),
+  style = "default"
+),
+    shinyBS::bsCollapsePanel("HOW IS SURVIVAL CALCULATED?",
+      div(
+        style = "font-size: 18px; padding: 20px;",
+        p("We use Kaplan-Meier survival analysis based on selected groupings (e.g., Mutation, Response).",
+          br(),
+          "Censoring and event status are determined from clinical endpoints like OS, RFS, and EFS.")
+      ),
+      style = "default"
+    ),
+    shinyBS::bsCollapsePanel("WHAT DOES THE KM PLOT SHOW?",
+      div(
+        style = "font-size: 18px; padding: 20px;",
+        p("The Kaplan-Meier plot shows survival probabilities over time.",
+          br(),
+          "It compares subgroups (e.g., responders vs non-responders) and includes confidence intervals.")
+      ),
+      style = "default"
+    )
+  )
+))

@@ -19,6 +19,8 @@ gmt_path <- if (file.exists("/srv/shiny-server/data/20251505_240genelist_withphe
 
 gmt_data_show <- read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
 
+SIGNATURE_DATA <- jsonlite::fromJSON("/srv/shiny-server/data/pathway_references_with_genes.json")
+
 server <- function(input, output, session) {
 
   version <- reactive({
@@ -288,12 +290,15 @@ server <- function(input, output, session) {
   
   # Generate Plot
   output$dynamicPlots <- renderUI({
-    plot_list <- lapply(input$pathway, function(path) {
-      plotname <- paste0("plot_", path)
-      plotOutput(plotname, height = "600px", width = "100%")
-    })
-    do.call(tagList, plot_list)
+  plot_list <- lapply(input$pathway, function(path) {
+    plotname <- paste0("plot_", path)
+    div(
+      style = "margin-bottom: 10px; max-width: 1200px;",
+      plotlyOutput(plotname, height = "600px", width = "100%")
+    )
   })
+  do.call(tagList, plot_list)
+})
   
   output$sampleDistributionPlot <- renderPlot({
     shiny::req(filtered_data(), input$comparison)
@@ -382,157 +387,185 @@ server <- function(input, output, session) {
   
   
   observe({
-    lapply(input$pathway, function(path) {
-      output[[paste0("plot_", path)]] <- renderPlot({
-        
-        # Filter data for the selected pathway
-        data <- filtered_data() %>% filter(Pathway == path)
-        
-        # --- DEBUGGING POINT ---
-        print(paste0("Pathway: ", path))
+  lapply(input$pathway, function(path) {
+    output[[paste0("plot_", path)]] <- plotly::renderPlotly({
+      
+      data <- filtered_data() %>% filter(Pathway == path)
+      if (nrow(data) == 0) {
+        showNotification("No data available for this pathway.", type = "error")
+        return(NULL)
+      }
 
-        # If there is no data, let's break early
-        if (nrow(data) == 0) {
-          showNotification("No data available for this pathway.", type = "error")
-          return(NULL)
-        }
-        
-        # --- SWITCH LOGIC FOR DYNAMICS VS STANDARD COMPARISON ---
-        if (input$comparison %in% c("Dynamics_Response", "Dynamics_Recurrence")) {
-          
-          # Compute Wilcoxon p-values based on Timepoint for Dynamics
-          p_values_df <- tryCatch({
-            data %>%
-              group_by(study, Comparison) %>%
-              summarise(
-                p_value = wilcox.test(Singscore ~ Timepoint)$p.value,
-                .groups = 'drop'
-              ) %>%
-              mutate(
-                label = dplyr::case_when(
-                  is.na(p_value)          ~ "NA",
-                  p_value < 0.0001        ~ "p < 0.0001",
-                  p_value < 0.001         ~ "p < 0.001",
-                  p_value < 0.01          ~ "p < 0.01",
-                  p_value < 0.05          ~ "p < 0.05",
-                  TRUE                    ~ paste0("p = ", round(p_value, 3))
-                )
-              )
-          }, error = function(e) {
-            print(paste0("Wilcoxon Error: ", e$message))
-            return(NULL)
-          })
-          
-          if (is.null(p_values_df)) {
-            showNotification("Wilcoxon test failed.", type = "error")
-            return(NULL)
-          }
-          
-          # --- PLOT FOR DYNAMICS ---
-          ggplot(data, aes(x = Timepoint, y = Singscore, fill = Timepoint)) +
-            geom_boxplot(width = 0.5, alpha = 0.8, position = position_dodge(0.7), outlier.shape = NA) +
-            geom_jitter(
-              shape = 21, size = 3,
-              position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
-              color = "black"
-            ) +
-            scale_fill_manual(values = c("Baseline" = "darkblue", "Week 6" = "orange")) +
-            facet_grid(Comparison ~ study) +
-            geom_text(
-              data = p_values_df,
-              aes(x = 1.5, y = max(data$Singscore, na.rm = TRUE) * 0.95, label = label),
-              inherit.aes = FALSE,
-              size = 5
-            ) +
-            theme_minimal() +
-            labs(
-              title = paste(gsub("_", " ", path), "Enrichment - Dynamics"),
-              x = "Time",
-              y = paste(path, "Singscore"),
-              fill = "Time"
-            ) +
-            theme(
-              plot.title = element_text(hjust = 0.5, size = 14),
-              axis.title.y = element_text(size = 14),
-              axis.title.x = element_text(size = 14),
-              axis.text.x = element_text(size = 14),  # adjust the number as needed
-              axis.text.y = element_text(size = 14),  # optional: increase y-axis too
-              panel.border = element_rect(color = "black", fill = NA, size = 1),
-              panel.spacing = unit(0.5, "lines"),
-              strip.background = element_rect(fill = "grey80", color = "black"),
-              strip.text = element_text(face = "bold", size = 14),
-              legend.text = element_text(size = 14),
-              legend.title = element_text(size = 14)
-            )
-          
-        } else {
-          # --- STANDARD RESPONSE OR RECURRENCE PLOTTING ---
-          
-          # Compute Wilcoxon p-values for each study and timepoint
-          p_values_df <- data %>%
-            group_by(Timepoint, study) %>%
+      if (input$comparison == "Recurrence Status") {
+        data$Comparison <- factor(data$Comparison, levels = c("No Recurrence", "Recurrence"), labels = c("NR", "R"))
+      }
+
+      if (input$comparison %in% c("Dynamics_Response", "Dynamics_Recurrence")) {
+        p_values_df <- tryCatch({
+          data %>%
+            group_by(study, Comparison) %>%
             summarise(
-              p_value = tryCatch(
-                wilcox.test(Singscore ~ Comparison)$p.value,
-                error = function(e) NA
-              ),
+              p_value = wilcox.test(Singscore ~ Timepoint)$p.value,
               .groups = 'drop'
             ) %>%
             mutate(
               label = dplyr::case_when(
-                is.na(p_value)          ~ "NA",
-                p_value < 0.0001        ~ "p < 0.0001",
-                p_value < 0.001         ~ "p < 0.001",
-                p_value < 0.01          ~ "p < 0.01",
-                p_value < 0.05          ~ "p < 0.05",
-                TRUE                    ~ paste0("p = ", round(p_value, 3))
+                is.na(p_value) ~ "NA",
+                p_value < 0.0001 ~ "p < 0.0001",
+                p_value < 0.001 ~ "p < 0.001",
+                p_value < 0.01 ~ "p < 0.01",
+                p_value < 0.05 ~ "p < 0.05",
+                TRUE ~ paste0("p = ", round(p_value, 3))
               )
             )
-          
-          # Plot
-          ggplot(data, aes(x = Timepoint, y = Singscore, fill = Comparison)) +
-            geom_boxplot(width = 0.5, alpha = 0.8, position = position_dodge(0.7), outlier.shape = NA) +
-            geom_jitter(
+        }, error = function(e) {
+          showNotification("Wilcoxon test failed.", type = "error")
+          return(NULL)
+        })
+
+        if (is.null(p_values_df)) return(NULL)
+
+        p <- ggplot(data, aes(x = Timepoint, y = Singscore, fill = Timepoint)) +
+          geom_boxplot(width = 0.5, alpha = 0.8, position = position_dodge(0.7), outlier.shape = NA) +
+          geom_jitter(
+            aes(
+                text = paste(
+                   "Patient ID: ", patient_id, "<br>",
+                  "Singscore: ", round(Singscore, 3), "<br>",
+                  "Mutation: ", Mutation, "<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
+                  "<br>",
+                  "<span style='color:transparent;'>...............................</span>"
+              )),
+            shape = 21, size = 3,
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
+            color = "black"
+          ) +
+          scale_fill_manual(values = c("Baseline" = "darkblue", "Week 6" = "orange")) +
+          facet_grid(Comparison ~ study) +
+          geom_text(
+            data = p_values_df,
+            aes(x = 1.5, y = max(data$Singscore, na.rm = TRUE) * 0.95, label = label),
+            inherit.aes = FALSE,
+            size = 5
+          ) +
+          theme_minimal() +
+          labs(
+            title = paste(gsub("_", " ", path), "Enrichment - Dynamics"),
+            x = "Time", y = paste(path, "Singscore"), fill = "Time"
+          ) +
+          theme(
+            plot.title = element_text(hjust = 0.5, size = 14),
+            axis.title = element_text(size = 14),
+            axis.text = element_text(size = 14),
+            panel.border = element_rect(color = "black", fill = NA, size = 1),
+            strip.background = element_rect(fill = "grey80", color = "black"),
+            strip.text = element_text(face = "bold", size = 14),
+            legend.text = element_text(size = 8),
+            legend.title = element_text(size = 9),
+            legend.position = "bottom"
+          )
+
+        plotly::ggplotly(p, tooltip = "text")  %>%
+        layout(boxmode = "group",  hoverlabel = list(
+      font = list(size = 12),  # Increase font size
+      bordercolor = "black",   # Optional: add border
+      align = "left"           # Optional: align text inside the hover box
+    ),legend = list(
+      orientation = "h",       # horizontal layout
+      x = 0.5,                 # centered horizontally
+      xanchor = "center",
+      y = -0.2                 # move below the plot
+    ),
+    autosize = TRUE,
+    margin = list(b = 150)     # add extra bottom margin to prevent cut-off
+    )
+
+      } else {
+        p_values_df <- data %>%
+          group_by(Timepoint, study) %>%
+          summarise(
+            p_value = tryCatch(wilcox.test(Singscore ~ Comparison)$p.value, error = function(e) NA),
+            .groups = 'drop'
+          ) %>%
+          mutate(
+            label = dplyr::case_when(
+              is.na(p_value) ~ "NA",
+              p_value < 0.0001 ~ "p < 0.0001",
+              p_value < 0.001 ~ "p < 0.001",
+              p_value < 0.01 ~ "p < 0.01",
+              p_value < 0.05 ~ "p < 0.05",
+              TRUE ~ paste0("p = ", round(p_value, 3))
+            )
+          )
+
+        fill_colors <- if (input$comparison == "Response") {
+          c("MPRs" = "#0072B2", "NMPRs" = "red")
+        } else {
+          c("NR" = "#56B4E9", "R" = "#D55E00")
+        }
+
+        p <- ggplot(data, aes(x = Timepoint, y = Singscore, fill = Comparison, group = interaction(Timepoint, Comparison))) +
+          geom_boxplot(width = 0.5, alpha = 0.8, position = position_dodge(0.7), outlier.shape = NA) +
+          geom_jitter(
+              aes(
+                fill = Comparison,
+                text = paste(
+                  "Patient ID: ", patient_id, "<br>",
+                  "Singscore: ", round(Singscore, 3), "<br>",
+                  "Mutation: ", Mutation, "<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
+                  "<br>",
+                  "<span style='color:transparent;'>...............................</span>"
+              ),
+                group = interaction(Timepoint, Comparison)
+              ),
               shape = 21, size = 3,
               position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
-              color = "black", aes(fill = Comparison)
+              color = "black"
             ) +
-            scale_fill_manual(values = if (input$comparison == "Response") {
-              c("MPRs" = "#0072B2", "NMPRs" = "red")
-            } else {
-              c("No Recurrence" = "#56B4E9", "Recurrence" = "#D55E00")
-            }) +
-            facet_wrap(~study) +
-            geom_text(
-              data = p_values_df,
-              aes(x = Timepoint, y = 0.6, label = label),
-              inherit.aes = FALSE,
-              size = 5
-            ) +
-            theme_minimal() +
-            labs(
-              title = paste(gsub("_", " ", path), "Enrichment"),
-              x = "Time",
-              y = paste(path, "Singscore"),
-              fill = input$comparison
-            ) +
-            theme(
-              plot.title = element_text(hjust = 0.5, size = 14),
-              axis.title.y = element_text(size = 14),
-              axis.title.x = element_text(size = 14),
-              axis.text.x = element_text(size = 14),  # adjust the number as needed
-              axis.text.y = element_text(size = 14),  # optional: increase y-axis too
-              panel.border = element_rect(color = "black", fill = NA, size = 1),
-              panel.spacing = unit(0.5, "lines"),
-              strip.background = element_rect(fill = "grey80", color = "black"),
-              strip.text = element_text(face = "bold", size = 14),
-              legend.text = element_text(size = 14),
-              legend.title = element_text(size = 14)
-            )
-        }
-      })
+          scale_fill_manual(values = fill_colors) +
+          facet_wrap(~study) +
+        
+          geom_text(
+            data = p_values_df,
+            aes(x = Timepoint, y = 0.6, label = label),
+            inherit.aes = FALSE,
+            size = 5
+          ) +
+          theme_minimal() +
+          labs(
+            title = paste(gsub("_", " ", path), "Enrichment"),
+            x = "Time", y = paste(path, "Singscore"), fill = input$comparison
+          ) +
+          theme(
+            plot.title = element_text(hjust = 0.5, size = 14),
+            axis.title = element_text(size = 14),
+            axis.text = element_text(size = 14),
+            panel.border = element_rect(color = "black", fill = NA, size = 1),
+            strip.background = element_rect(fill = "grey80", color = "black"),
+            strip.text = element_text(face = "bold", size = 14),
+            legend.text = element_text(size = 8),
+            legend.title = element_text(size = 9),
+            legend.position = "bottom"
+          )
+
+        plotly::ggplotly(p, tooltip = "text")  %>%
+        layout(boxmode = "group",  hoverlabel = list(
+      font = list(size = 12),  # Increase font size
+      bordercolor = "black",   # Optional: add border
+      align = "left"           # Optional: align text inside the hover box
+    ),legend = list(
+      orientation = "h",       # horizontal layout
+      x = 0.5,                 # centered horizontally
+      xanchor = "center",
+      y = -0.2                 # move below the plot
+    ),
+    autosize = TRUE,
+    margin = list(b = 150)     # add extra bottom margin to prevent cut-off
+    )
+      }
     })
   })
+})
   
   # === Reactive Values and Reset Handling ===
 cohorts <- reactiveValues(groups = list())
@@ -1283,6 +1316,75 @@ output$censorTable <- renderPlot({
 })
 
 
+})
+
+### HELP Support button - survival
+observeEvent(input$openSurvivalHelp, {
+  showModal(modalDialog(
+    title = "Survival Analysis Help",
+    easyClose = TRUE,
+    size = "m",
+    tagList(
+      p("This panel allows you to perform survival analysis (Kaplan-Meier) based on selected filters:"),
+      tags$ul(
+        tags$li("OS, RFS, EFS, MSS: Select the endpoint of interest."),
+        tags$li("Group By: Choose how patients are grouped (e.g., by mutation status, treatment response)."),
+        tags$li("Study Filter: Optionally limit to specific studies."),
+        tags$li("Use custom groups to define your own cohorts if available.")
+      ),
+      p("After configuring your options, click 'Run Survival Analysis' to generate the KM plot and related tables.")
+    )
+  ))
+})
+
+### help/info button for signature analysis
+observeEvent(input$openSignatureHelp, {
+  showModal(modalDialog(
+    title = "Signature Analysis Help",
+    easyClose = TRUE,
+    size = "m",
+    tagList(
+      p("This panel allows you to explore pathway signature scores across patient cohorts."),
+      tags$ul(
+        tags$li("Select Signatures: Choose one or more curated gene sets for analysis."),
+        tags$li("Study: Filter data to a specific clinical trial or keep 'All'."),
+        tags$li("Comparison Type: Choose to compare by response, recurrence, or dynamics."),
+        tags$li("Timepoint: Focus on Baseline, Week 6, or all timepoints."),
+        tags$li("Custom Cohort: Create and select patient subsets for focused comparisons.")
+      ),
+      p("After selecting your filters, results will update dynamically in the dashboard view.")
+    )
+  ))
+})
+
+
+###HELP PAGE fx
+observe({
+  updateSelectInput(session, "selectedSignatureHelp",
+                    choices = sort(names(SIGNATURE_DATA)))
+})
+
+# Display signature info
+output$signatureInfo <- renderUI({
+  req(input$selectedSignatureHelp)
+  sig <- input$selectedSignatureHelp
+  info <- SIGNATURE_DATA[[sig]]
+
+  tagList(
+    h4("Reference:"),
+    if (!is.null(info$url) && nzchar(info$url[1])) {
+      tags$a(href = info$url, target = "_blank", info$author)
+    } else {
+      tags$p(info$author)
+    },
+    br(), br(),
+    h4("Genes in Signature:"),
+    div(
+      style = "max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;",
+      tags$ul(style = "padding-left: 20px; font-size: 16px;", 
+              lapply(info$genes, function(g) tags$li(g)))
+    )
+  )
 })
 
 
