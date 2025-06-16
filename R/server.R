@@ -169,6 +169,7 @@ server <- function(input, output, session) {
       shinyjs::html("submitData", "Submit Data")
     })
   })
+  
     
   
   # Reactive expression to get associated genes from GMTy
@@ -468,8 +469,8 @@ server <- function(input, output, session) {
         plotly::ggplotly(p, tooltip = "text")  %>%
         layout(boxmode = "group",  hoverlabel = list(
       font = list(size = 12),  # Increase font size
-      bordercolor = "black",   # Optional: add border
-      align = "left"           # Optional: align text inside the hover box
+      bordercolor = "black",   # add border
+      align = "left"           # align text inside the hover box
     ),legend = list(
       orientation = "h",       # horizontal layout
       x = 0.5,                 # centered horizontally
@@ -512,7 +513,7 @@ server <- function(input, output, session) {
                 text = paste(
                   "Patient ID: ", patient_id, "<br>",
                   "Singscore: ", round(Singscore, 3), "<br>",
-                  "Mutation: ", Mutation, "<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
+                  "Mutation: ", Mutation, "<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
                   "<br>",
                   "<span style='color:transparent;'>...............................</span>"
               ),
@@ -551,8 +552,8 @@ server <- function(input, output, session) {
         plotly::ggplotly(p, tooltip = "text")  %>%
         layout(boxmode = "group",  hoverlabel = list(
       font = list(size = 12),  # Increase font size
-      bordercolor = "black",   # Optional: add border
-      align = "left"           # Optional: align text inside the hover box
+      bordercolor = "black",   #  add border
+      align = "left"           # align text inside the hover box
     ),legend = list(
       orientation = "h",       # horizontal layout
       x = 0.5,                 # centered horizontally
@@ -1264,7 +1265,7 @@ observeEvent(input$runSurvival, {
   #  Recode binary response 
   if ("MPRvNMPR" %in% colnames(data)) {
     data <- data %>%
-      mutate(Response_comparison = dplyr::case_when(
+      mutate(Response = dplyr::case_when(
         MPRvNMPR == 1 ~ "MPRs",
         MPRvNMPR == 0 ~ "NMPRs",
         TRUE ~ NA_character_
@@ -1274,7 +1275,7 @@ observeEvent(input$runSurvival, {
   # Determine grouping variable 
   group_col <- dplyr::case_when(
   input$groupingVariable == "Custom Group" ~ "Group",
-  input$groupingVariable == "Response"     ~ "Response_comparison",
+  input$groupingVariable == "Response"     ~ "Response",
   input$groupingVariable == "Mutation"     ~ "Mutation"
 )
 
@@ -1282,15 +1283,11 @@ observeEvent(input$runSurvival, {
 surv_data_input <- run_survival_analysis(
   data = data,
   survival_type = input$survivalTime,
-  group_col = group_col
+  group_col = group_col,
+  time_unit = input$time_unit
 )
 
-max_time <- ceiling(max(surv_data_input$data$time, na.rm = TRUE))
-
-output$timeSliderUI <- renderUI({
-    sliderInput("time_range", "Filter Time Range (Months)",
-                min = 0, max = max_time, value = c(0, max_time), step = 1)
-  })
+print(surv_data_input)
 
 
 surv_plot <- plotly_survival(
@@ -1298,7 +1295,8 @@ surv_plot <- plotly_survival(
       data = surv_data_input$data,
       survival_type = input$survivalTime,
       group_col = group_col,
-      pval_txt = surv_data_input$pval_txt
+      pval_txt = surv_data_input$pval_txt,
+      time_unit = input$time_unit
     )
 
 
@@ -1337,6 +1335,24 @@ observeEvent(input$openSurvivalHelp, {
   ))
 })
 
+
+### HELP Support button - data upload
+observeEvent(input$dataImportHelp, {
+  showModal(modalDialog(
+    title = "Data Import Help",
+    easyClose = TRUE,
+    size = "m",
+    tagList(
+      p("This tab allows you to upload your own gene expression matrix and clinical data:"),
+      tags$ul(
+        tags$li("Click the show example data format below to see the correct input should look like, including name conventions for columns."),
+        tags$li("There is also an option to compare your data to our reference set - click merge with example data."),
+        tags$li("You can also upload a specific signature of your own. Please ensure example data isn't selected.")
+      )
+    )
+  ))
+})
+
 ### help/info button for signature analysis
 observeEvent(input$openSignatureHelp, {
   showModal(modalDialog(
@@ -1350,7 +1366,8 @@ observeEvent(input$openSignatureHelp, {
         tags$li("Study: Filter data to a specific clinical trial or keep 'All'."),
         tags$li("Comparison Type: Choose to compare by response, recurrence, or dynamics."),
         tags$li("Timepoint: Focus on Baseline, Week 6, or all timepoints."),
-        tags$li("Custom Cohort: Create and select patient subsets for focused comparisons.")
+        tags$li("Custom Cohort: Create and select patient subsets for focused comparisons."),
+        tags$li("Curated Gene sets: Please head over to the Help tab for more to find the reference for the gene set.")
       ),
       p("After selecting your filters, results will update dynamically in the dashboard view.")
     )
