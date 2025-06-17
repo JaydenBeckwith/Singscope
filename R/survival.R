@@ -130,6 +130,10 @@ plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt, 
   data[[group_col]] <- as.factor(data[[group_col]])
   levels(data[[group_col]]) <- gsub(".*=", "", levels(data[[group_col]]))
 
+  #set max on plot so it doesnt hang over 
+
+  xmax <- quantile(data$time, 0.95, na.rm = TRUE)
+
   ggs <- survminer::ggsurvplot(
     fit = surv_fit,
     data = data,
@@ -145,7 +149,8 @@ plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt, 
     palette = "Set1",
     conf.int.style = "step",
     surv.median.line = "hv",
-    ggtheme = theme_minimal()
+    ggtheme = theme_minimal(),
+    xlim = c(0, xmax)
   )
 
   # Main plot adjustments

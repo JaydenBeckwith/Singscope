@@ -441,7 +441,7 @@ server <- function(input, output, session) {
             position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
             color = "black"
           ) +
-          scale_fill_manual(values = c("Baseline" = "darkblue", "Week 6" = "orange")) +
+          scale_fill_manual(values = c("Baseline" = "#00ffb3", "Week 6" = "orange")) +
           facet_grid(Comparison ~ study) +
           geom_text(
             data = p_values_df,
@@ -881,7 +881,7 @@ observeEvent(input$resetCohortSelection, {
               position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
               color = "black"
             ) +
-            scale_fill_manual(values = c("Baseline" = "darkblue", "Week 6" = "orange")) +
+            scale_fill_manual(values = c("Baseline" = "#00ffb3", "Week 6" = "orange")) +
             facet_grid(Comparison ~ study) +
             geom_text(
               data = p_values_df,
@@ -1111,92 +1111,93 @@ observeEvent(input$resetCohortSelection, {
   })
   
   observeEvent(input$computeTrajectory, {
-    req(input$trajectoryPathways, input$studyFilter)
-    
-    showNotification("Computing trajectory of pathway correlations...", type = "message")
-    
-    # === Filter by study if not 'All'
-    data <- if (input$studyFilter != "All") {
-      merged_sing_df %>%
-        filter(study == input$studyFilter)
-    } else {
-      merged_sing_df
+  req(input$trajectoryPathways, input$studyFilter, 
+      input$trajectoryTimepoint1, input$trajectoryTimepoint2)
+  
+  showNotification("Computing trajectory of pathway correlations...", type = "message")
+  
+  # === Filter by study
+  data <- if (input$studyFilter != "All") {
+    merged_sing_df %>% filter(study == input$studyFilter)
+  } else {
+    merged_sing_df
+  }
+  
+  # === Subset selected pathways
+  data <- data %>% filter(Pathway %in% input$trajectoryPathways)
+  
+  # === Pivot to wide format
+  wide_data <- data %>%
+    dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
+    tidyr::pivot_wider(names_from = Pathway, values_from = Singscore)
+  
+  # === Ensure numeric columns
+  singscore_matrix <- wide_data %>%
+    dplyr::select(-sample_id, -Timepoint) %>%
+    mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+    as.data.frame()
+  
+  rownames(singscore_matrix) <- wide_data$sample_id
+  timepoints_vector <- wide_data$Timepoint
+  
+  # === Compute correlation matrix per timepoint
+  correlation_list <- list()
+  for (tp in unique(timepoints_vector)) {
+    idx <- which(timepoints_vector == tp)
+    sub_matrix <- singscore_matrix[idx, , drop = FALSE]
+    if (nrow(sub_matrix) > 1) {
+      correlation_list[[tp]] <- cor(sub_matrix, use = "pairwise.complete.obs")
     }
-    
-    # === Subset only the selected pathways
-    data <- data %>%
-      filter(Pathway %in% input$trajectoryPathways)
-    
-    # === Pivot to wide format to prepare for correlation calculation
-    wide_data <- data %>%
-      dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
-      tidyr::pivot_wider(names_from = Pathway, values_from = Singscore)
-    
-    # === Ensure numeric columns
-    singscore_matrix <- wide_data %>%
-      dplyr::select(-sample_id, -Timepoint) %>%
-      mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
-      as.data.frame()
-    
-    rownames(singscore_matrix) <- wide_data$sample_id
-    timepoints_vector <- wide_data$Timepoint
-    
-    # === Compute correlation matrix per timepoint
-    correlation_list <- list()
-    for (tp in unique(timepoints_vector)) {
-      idx <- which(timepoints_vector == tp)
-      sub_matrix <- singscore_matrix[idx, , drop = FALSE]
-      
-      if (nrow(sub_matrix) > 1) {
-        correlation_matrix <- cor(sub_matrix, use = "pairwise.complete.obs")
-        correlation_list[[tp]] <- correlation_matrix
-      }
+  }
+  
+  # === Convert to long format
+  correlation_df <- do.call(rbind, lapply(names(correlation_list), function(tp) {
+    corr_mat <- correlation_list[[tp]]
+    if (!is.null(corr_mat)) {
+      df <- as.data.frame(as.table(corr_mat))
+      df$Timepoint <- tp
+      return(df)
     }
+  }))
+  
+  colnames(correlation_df) <- c("Pathway1", "Pathway2", "Correlation", "Timepoint")
+  
+  # === Filter only unique pairwise correlations
+  selected_pairs <- combn(unique(input$trajectoryPathways), 2, simplify = FALSE)
+  selected_pair_labels <- sapply(selected_pairs, function(x) paste(sort(x), collapse = " vs "))
+  
+  correlation_df <- correlation_df %>%
+    filter(Pathway1 != Pathway2) %>%
+    mutate(Pair = paste(pmin(Pathway1, Pathway2), pmax(Pathway1, Pathway2), sep = " vs ")) %>%
+    filter(Pair %in% selected_pair_labels) %>%
+    distinct(Pair, Timepoint, .keep_all = TRUE)
+  
+  # === Compute Delta Correlation Matrix (tp2 - tp1)
+  tp1 <- input$trajectoryTimepoint1
+  tp2 <- input$trajectoryTimepoint2
+  
+  if (tp1 %in% names(correlation_list) && tp2 %in% names(correlation_list)) {
+    corr1 <- correlation_list[[tp1]]
+    corr2 <- correlation_list[[tp2]]
+    delta_matrix <- corr2 - corr1
     
-    # === Convert to long format
-    correlation_df <- do.call(rbind, lapply(names(correlation_list), function(tp) {
-      corr_mat <- correlation_list[[tp]]
-      if (!is.null(corr_mat)) {
-        df <- as.data.frame(as.table(corr_mat))
-        df$Timepoint <- tp
-        return(df)
-      }
-    }))
-    colnames(correlation_df) <- c("Pathway1", "Pathway2", "Correlation", "Timepoint")
-    
-    selected_pairs <- combn(unique(input$trajectoryPathways), 2, simplify = FALSE)
-    selected_pair_labels <- sapply(selected_pairs, function(x) paste(sort(x), collapse = " vs "))
-    
-    # Filter only selected pairs (avoid self-correlations)
-    correlation_df <- correlation_df %>%
-      filter(Pathway1 != Pathway2) %>%
-      mutate(Pair = paste(pmin(Pathway1, Pathway2), pmax(Pathway1, Pathway2), sep = " vs ")) %>%
-      filter(Pair %in% selected_pair_labels) %>%
-      distinct(Pair, Timepoint, .keep_all = TRUE)
-    
-    # === Compute Delta Correlation Matrix (Week 6 - Baseline)
-    if ("Baseline" %in% names(correlation_list) && "Week 6" %in% names(correlation_list)) {
-      baseline_corr <- correlation_list[["Baseline"]]
-      week6_corr <- correlation_list[["Week 6"]]
-      delta_matrix <- week6_corr - baseline_corr
-      
-      # === Render Delta Correlation Heatmap
-      output$deltaCorrelationHeatmap <- renderPlotly({
-        heatmaply::heatmaply(
-          delta_matrix,
-          main = "Delta Correlation (Week 6 - Baseline)",
-          xlab = "Pathways",
-          ylab = "Pathways",
-          colors = colorRampPalette(c("blue", "white", "red"))(100),
-          dendrogram = "both"
-        )
-      })
-    } else {
-      showNotification("One of the timepoints (Baseline or Week 6) is missing.", type = "error")
-    }
-    
-    showNotification("Trajectory analysis complete!", type = "message")
-  })
+    # === Render Delta Correlation Heatmap
+    output$deltaCorrelationHeatmap <- renderPlotly({
+      heatmaply::heatmaply(
+        delta_matrix,
+        main = paste("Delta Correlation (", tp2, " - ", tp1, ")", sep = ""),
+        xlab = "",
+        ylab = "",
+        colors = colorRampPalette(c("blue", "white", "red"))(100),
+        dendrogram = "both"
+      )
+    })
+  } else {
+    showNotification("One or both selected timepoints are missing correlation data.", type = "error")
+  }
+  
+  showNotification("Trajectory analysis complete!", type = "message")
+})
   
   # Download Table as CSV
   output$downloadTable <- downloadHandler(

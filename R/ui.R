@@ -204,13 +204,15 @@ ui <- navbarPage(
           sidebarPanel(
             h4("Correlation Settings"),
             selectInput("correlationMethod", "Correlation Method", choices = c("pearson", "spearman", "kendall")),
-            selectInput("timepointFilter", "Timepoint", choices = c("All", "Baseline", "Week 6")),
+            selectInput("timepointFilter", "Timepoint", choices = unique(merged_sing_df$Timepoint)),
             selectInput("cohortFilter", "Cohort", choices = c("All", unique(merged_sing_df$study))),
-            actionButton("computeCorrelation", "Compute Correlation", class = "btn-primary"),
+            actionButton("computeCorrelation", "Compute Correlation", class = "btn btn-dark"),
             tags$hr(), h4("Temporal Trajectory Analysis"),
             pickerInput("trajectoryPathways", "Select Pathways", choices = unique(merged_sing_df$Pathway), multiple = TRUE, options = list(`actions-box` = TRUE)),
+            selectInput("trajectoryTimepoint1", "Select First Timepoint", choices = unique(merged_sing_df$Timepoint)),
+            selectInput("trajectoryTimepoint2", "Select Second Timepoint", choices = unique(merged_sing_df$Timepoint)),
             selectInput("studyFilter", "Study", choices = c("All", unique(merged_sing_df$study))),
-            actionButton("computeTrajectory", "Compute Trajectory", class = "btn-info"),
+            actionButton("computeTrajectory", "Compute Trajectory", class = "btn btn-dark"),
             tags$hr(),
             downloadButton("downloadCorrelation", "Download Correlation Matrix")
           )
