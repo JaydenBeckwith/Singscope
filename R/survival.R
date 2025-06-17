@@ -17,63 +17,81 @@ run_survival_analysis <- function(data, survival_type = c("OS", "RFS", "EFS", "M
       ~ dplyr::na_if(as.character(.), ".")
     ))
 
+
+  ### make sure we are only counting each patient once - since we can have multiple samples per ptx
+  data <- data %>% dplyr::distinct(patient_id, .keep_all = TRUE)
+
   # Convert Excel-style numeric dates or string dates
   date_cols <- c(
     "date_fu", "date_neoadj_start", "date_surgery",
     "recurrencefree_date", "eventfree_date"
   )
 
+
+  ### R uses american dates - correct for this 
   for (col in date_cols) {
     if (is.numeric(data[[col]])) {
-      data[[col]] <- as.Date(data[[col]], origin = "1899-12-30")
+      data[[col]] <- as.Date(data[[col]], format = "%d-%m-%Y")
     } else {
-      data[[col]] <- as.Date(data[[col]])
+      data[[col]] <- as.Date(as.character(data[[col]]), format = "%d/%m/%Y")
     }
   }
 
   # Ensure key columns are correctly formatted
   data <- data %>%
-    dplyr::mutate(
-      recurrence_status = as.numeric(recurrence_status),
-      event_status = as.numeric(event_status)
-    )
+  dplyr::mutate(
+    recurrence_status = as.numeric(recurrence_status),
+    event_status = as.numeric(event_status),
+    death = as.numeric(death),
+    death_cause = as.numeric(death_cause),
+    surgery = as.numeric(surgery)
+  )
 
-  # Compute time and event variables
-  data <- data %>%
-    dplyr::mutate(
-      raw_time = dplyr::case_when(
-        survival_type == "OS"  ~ as.numeric(as.Date(date_fu) - as.Date(date_neoadj_start)),
-        survival_type == "RFS" ~ as.numeric(as.Date(recurrencefree_date) - as.Date(date_surgery)),
-        survival_type == "EFS" ~ as.numeric(as.Date(eventfree_date) - as.Date(date_neoadj_start)),
-        survival_type == "MSS" ~ as.numeric(as.Date(date_fu) - as.Date(date_neoadj_start))
-      ),
-      time_unit_factor = dplyr::case_when(
-        time_unit == "days"   ~ 1,
-        time_unit == "months" ~ 1 / 30.44,
-        time_unit == "years"  ~ 1 / 365.25
-      ),
-      time = raw_time * time_unit_factor,
-      event = dplyr::case_when(
-        survival_type == "OS"  ~ as.numeric(death == 1),
-        survival_type == "RFS" ~ as.numeric(recurrence_status == 1),
-        survival_type == "EFS" ~ as.numeric(event_status == 1),
-        survival_type == "MSS" ~ as.numeric(death_cause == 1)
-      )
-    )
+# Define eligibility per survival type as per surv rules 
+data <- data %>%
+  dplyr::mutate(
+    eligible_OS  = !is.na(date_neoadj_start) & !is.na(date_fu),
+    eligible_EFS = !is.na(date_neoadj_start) & !is.na(eventfree_date),
+    eligible_RFS = surgery == 1 & !is.na(date_surgery) & !is.na(recurrencefree_date) & !is.na(recurrence_status),
+    eligible_MSS = !is.na(date_neoadj_start) & !is.na(date_fu) & !is.na(death_cause)
+  ) 
 
-  # Apply RFS-specific inclusion criteria
-  if (survival_type == "RFS") {
-    data <- data %>%
-      filter(surgery == 1, !is.na(date_surgery), !is.na(recurrencefree_date), !is.na(recurrence_status))
-  }
 
-  # Filter incomplete or malformed data
-  data <- data %>%
-    filter(!is.na(time), !is.na(event), time >= 0, !is.na(.data[[group_col]]))
+# Define raw time and event columns using proper logic
+data <- data %>%
+  dplyr::mutate(
+    raw_time = dplyr::case_when(
+      survival_type == "OS"  & eligible_OS  ~ as.numeric(date_fu - date_neoadj_start),
+      survival_type == "EFS" & eligible_EFS ~ as.numeric(eventfree_date - date_neoadj_start),
+      survival_type == "RFS" & eligible_RFS ~ as.numeric(recurrencefree_date - date_surgery),
+      survival_type == "MSS" & eligible_MSS ~ as.numeric(date_fu - date_neoadj_start),
+      TRUE ~ NA_real_
+    ),
+    event = dplyr::case_when(
+      survival_type == "OS"  ~ as.numeric(death == 1),
+      survival_type == "EFS" ~ as.numeric(event_status == 1),
+      survival_type == "RFS" ~ as.numeric(recurrence_status == 1),
+      survival_type == "MSS" ~ as.numeric(death_cause == 1),
+      TRUE ~ NA_real_
+    ),
+    time_unit_factor = dplyr::case_when(
+      time_unit == "days"   ~ 1,
+      time_unit == "months" ~ 1 / 30.44,
+      time_unit == "years"  ~ 1 / 365.25
+    ),
+    time = raw_time * time_unit_factor
+  )
 
-  if (nrow(data) == 0) {
-    stop("No valid observations for survival analysis after filtering.")
-  }
+print(data)
+
+# Filter incomplete or malformed rows
+#data <- data %>%
+  #filter(!is.na(time), !is.na(event), time >= 0, !is.na(.data[[group_col]]))
+
+# Stop if nothing usable
+if (nrow(data) == 0) {
+  stop("No valid observations for survival analysis after filtering.")
+}
 
   # Fit survival model
   # Create formula
@@ -108,7 +126,6 @@ run_survival_analysis <- function(data, survival_type = c("OS", "RFS", "EFS", "M
 plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt, time_unit = "months") {
 
   group_col <- as.character(group_col)
-  xmax <- quantile(data$time, 0.95, na.rm = TRUE)
 
   data[[group_col]] <- as.factor(data[[group_col]])
   levels(data[[group_col]]) <- gsub(".*=", "", levels(data[[group_col]]))
@@ -128,8 +145,7 @@ plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt, 
     palette = "Set1",
     conf.int.style = "step",
     surv.median.line = "hv",
-    ggtheme = theme_minimal(),
-    xlim = c(0, xmax)
+    ggtheme = theme_minimal()
   )
 
   # Main plot adjustments
@@ -169,6 +185,7 @@ plotly_survival <- function(surv_fit, data, survival_type, group_col, pval_txt, 
 
   return(list(
     plot = plotly_plot,
+    gplot = ggs$plot,     # the original ggplot object
     risk_table = ggs$table,
     censor_plot = ggs$ncensor.plot
   ))

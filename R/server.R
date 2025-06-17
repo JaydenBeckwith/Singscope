@@ -1241,6 +1241,10 @@ observeEvent(input$resetCohortSelection, {
   )
 })
 
+surv_plot_reactive <- reactiveVal()
+risk_table_reactive <- reactiveVal()
+censor_plot_reactive <- reactiveVal()
+
 observeEvent(input$runSurvival, {
   req(filtered_data(), input$selectedSurvivalCohort)
 
@@ -1313,8 +1317,34 @@ output$censorTable <- renderPlot({
   surv_plot$censor_plot
 })
 
+surv_plot_reactive(surv_plot$gplot)
+risk_table_reactive(surv_plot$risk_table)
+censor_plot_reactive(surv_plot$censor_plot)
+
 
 })
+
+output$downloadSurvPlots <- downloadHandler(
+  filename = function() {
+    paste0("survival_plots_", input$survivalTime, "_", Sys.Date(), ".zip")
+  },
+  content = function(zipfile) {
+    # Create temp directory
+    tmpdir <- tempdir()
+    surv_file <- file.path(tmpdir, "survival_plot.png")
+    risk_file <- file.path(tmpdir, "risk_table.png")
+    censor_file <- file.path(tmpdir, "censor_plot.png")
+
+    # Save plots using ggsave
+    ggsave(surv_file, plot = surv_plot_reactive(), bg= "white", width = 8, height = 6, dpi = 300)
+    ggsave(risk_file, plot = risk_table_reactive(), bg= "white", width = 8, height = 3, dpi = 300)
+    ggsave(censor_file, plot = censor_plot_reactive(), bg= "white", width = 8, height = 3, dpi = 300)
+
+    # Zip the files
+    zip::zip(zipfile, files = c(surv_file, risk_file, censor_file))
+  },
+  contentType = "application/zip"
+)
 
 ### HELP Support button - survival
 observeEvent(input$openSurvivalHelp, {

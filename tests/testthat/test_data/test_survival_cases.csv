@@ -1,0 +1,5 @@
+patient_id,date_neoadj_start,date_surgery,recurrencefree_date,eventfree_date,date_fu,recurrence_status,event_status,death,death_cause,surgery,group
+P001,2020-01-01,2020-02-01,2020-06-01,2020-05-15,2020-07-01,1.0,1.0,1,1.0,1,A
+P002,2020-01-01,,,2020-03-01,2020-06-01,,1.0,0,,0,B
+P003,,,,,,,,1,1.0,0,A
+P004,2020-01-01,2020-02-01,2020-04-01,2020-03-15,2020-05-01,1.0,1.0,1,0.0,1,B

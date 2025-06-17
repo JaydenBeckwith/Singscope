@@ -258,7 +258,10 @@ ui <- navbarPage(
         selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
         uiOutput("cohortSelectSurvivalUI"),
         selectInput("time_unit", "Display time in", choices = c("days", "months", "years"), selected = "months"),
-        actionButton("runSurvival", "Run Survival Analysis", class = "btn btn-dark")
+        div(style = "display: flex; gap: 10px; align-items: center;",
+        actionButton("runSurvival", "Run Survival Analysis", class = "btn btn-dark"),
+        downloadButton("downloadSurvPlots", "Download Results", class = "btn btn-dark")
+      )
       )
     ),
     mainPanel(
