@@ -1018,43 +1018,15 @@ observeEvent(input$resetCohortSelection, {
   )
   
   
-  observeEvent(input$computeCorrelation, {
-    req(input$cohortFilter, input$timepointFilter)
-    
-    showNotification("Computing pathway correlations...", type = "message")
-    
-    # === Get the appropriate cohort
-    cohort_name <- input$cohortFilter
-    timepoint_name <- input$timepointFilter
-    
-    if (cohort_name == "All") {
-      cohort_data <- merged_sing_df
-    } else {
-      cohort_data <- merged_sing_df %>%
-        filter(study == cohort_name)
-    }
-    
-    # === Filter by Timepoint
-    if (timepoint_name != "All") {
-      cohort_data <- cohort_data %>% filter(Timepoint == timepoint_name)
-    }
-    
-    # === Create a Singscore Matrix
-    singscore_matrix <- cohort_data %>%
+  # === Internal helper function to compute and render heatmap
+  compute_and_render_correlation <- function(data, cohort_name, timepoint_name, cor_method) {
+    singscore_matrix <- data %>%
       dplyr::select(sample_id, Pathway, Singscore) %>%
       tidyr::pivot_wider(names_from = Pathway, values_from = Singscore) %>%
       tibble::column_to_rownames("sample_id")
-    
-    # === Enforce Valid Method and Clean Whitespace ===
-    cor_method <- trimws(input$correlationMethod)  
-    cor_method <- match.arg(cor_method, c("pearson", "kendall", "spearman"))
-    
-    # === Compute the Correlation Matrix
+
     correlation_matrix <- cor(singscore_matrix, method = cor_method, use = "pairwise.complete.obs")
-    
-    showNotification("Rendering interactive heatmap...", type = "message")
-    
-    # === Plot the Interactive Heatmap
+
     output$correlationHeatmap <- renderPlotly({
       heatmaply::heatmaply(
         correlation_matrix,
@@ -1074,26 +1046,11 @@ observeEvent(input$resetCohortSelection, {
         showticklabels = c(FALSE, FALSE)
       ) %>%
         plotly::layout(
-          xaxis = list(
-            showticklabels = FALSE,
-            title = NULL,
-            showline = FALSE,
-            tickvals = list(),
-            ticktext = list()
-          ),
-          yaxis = list(
-            showticklabels = FALSE,
-            title = NULL,
-            showline = FALSE,
-            tickvals = list(),
-            ticktext = list()
-          )
+          xaxis = list(showticklabels = FALSE, title = NULL),
+          yaxis = list(showticklabels = FALSE, title = NULL)
         )
     })
-    
-    showNotification("Interactive heatmap rendering complete!", type = "message")
-    
-    # === Allow Download of the Correlation Matrix
+
     output$downloadCorrelation <- downloadHandler(
       filename = function() {
         paste0("Pathway_Correlation_", cohort_name, "_", timepoint_name, "_", Sys.Date(), ".csv")
@@ -1102,7 +1059,32 @@ observeEvent(input$resetCohortSelection, {
         write.csv(correlation_matrix, file, row.names = TRUE)
       }
     )
+  }
+
+  # === Triggered when "Compute Correlation" button is clicked
+  observeEvent(input$computeCorrelation, {
+    req(input$cohortFilter, input$timepointFilter)
+
+    showNotification("Computing pathway correlations...", type = "message")
+
+    # === Apply filters
+    cohort_name <- input$cohortFilter
+    timepoint_name <- input$timepointFilter
+
+    data <- if (cohort_name == "All") merged_sing_df else merged_sing_df %>% filter(study == cohort_name)
+    if (timepoint_name != "All") {
+      data <- data %>% filter(Timepoint == timepoint_name)
+    }
+
+    # === Correlation method
+    cor_method <- trimws(input$correlationMethod)
+    cor_method <- match.arg(cor_method, c("pearson", "kendall", "spearman"))
+
+    compute_and_render_correlation(data, cohort_name, timepoint_name, cor_method)
+
+    showNotification("Interactive heatmap rendering complete!", type = "message")
   })
+
   
   observeEvent(input$cohortFilter, {
     if (input$cohortFilter != "") {
