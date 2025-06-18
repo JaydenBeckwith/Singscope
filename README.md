@@ -22,7 +22,7 @@ An interactive Shiny application for analysing bulk RNA signatures and supportin
 
 ## Manual 
 
-- [Using a Custom Gene Set (HTML)](docs/upload_custom_geneset.html)
+- [Using a Custom Gene Set](https://jaydenbeckwith.github.io/Singscope/upload_custom_geneset.html)
 
 ---
 
