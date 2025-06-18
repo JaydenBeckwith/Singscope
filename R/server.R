@@ -169,6 +169,7 @@ server <- function(input, output, session) {
       shinyjs::html("submitData", "Submit Data")
     })
   })
+  
     
   
   # Reactive expression to get associated genes from GMTy
@@ -440,7 +441,7 @@ server <- function(input, output, session) {
             position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
             color = "black"
           ) +
-          scale_fill_manual(values = c("Baseline" = "darkblue", "Week 6" = "orange")) +
+          scale_fill_manual(values = c("Baseline" = "#00ffb3", "Week 6" = "orange")) +
           facet_grid(Comparison ~ study) +
           geom_text(
             data = p_values_df,
@@ -468,8 +469,8 @@ server <- function(input, output, session) {
         plotly::ggplotly(p, tooltip = "text")  %>%
         layout(boxmode = "group",  hoverlabel = list(
       font = list(size = 12),  # Increase font size
-      bordercolor = "black",   # Optional: add border
-      align = "left"           # Optional: align text inside the hover box
+      bordercolor = "black",   # add border
+      align = "left"           # align text inside the hover box
     ),legend = list(
       orientation = "h",       # horizontal layout
       x = 0.5,                 # centered horizontally
@@ -512,7 +513,7 @@ server <- function(input, output, session) {
                 text = paste(
                   "Patient ID: ", patient_id, "<br>",
                   "Singscore: ", round(Singscore, 3), "<br>",
-                  "Mutation: ", Mutation, "<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
+                  "Mutation: ", Mutation, "<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",
                   "<br>",
                   "<span style='color:transparent;'>...............................</span>"
               ),
@@ -551,8 +552,8 @@ server <- function(input, output, session) {
         plotly::ggplotly(p, tooltip = "text")  %>%
         layout(boxmode = "group",  hoverlabel = list(
       font = list(size = 12),  # Increase font size
-      bordercolor = "black",   # Optional: add border
-      align = "left"           # Optional: align text inside the hover box
+      bordercolor = "black",   #  add border
+      align = "left"           # align text inside the hover box
     ),legend = list(
       orientation = "h",       # horizontal layout
       x = 0.5,                 # centered horizontally
@@ -880,7 +881,7 @@ observeEvent(input$resetCohortSelection, {
               position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.7),
               color = "black"
             ) +
-            scale_fill_manual(values = c("Baseline" = "darkblue", "Week 6" = "orange")) +
+            scale_fill_manual(values = c("Baseline" = "#00ffb3", "Week 6" = "orange")) +
             facet_grid(Comparison ~ study) +
             geom_text(
               data = p_values_df,
@@ -1017,43 +1018,15 @@ observeEvent(input$resetCohortSelection, {
   )
   
   
-  observeEvent(input$computeCorrelation, {
-    req(input$cohortFilter, input$timepointFilter)
-    
-    showNotification("Computing pathway correlations...", type = "message")
-    
-    # === Get the appropriate cohort
-    cohort_name <- input$cohortFilter
-    timepoint_name <- input$timepointFilter
-    
-    if (cohort_name == "All") {
-      cohort_data <- merged_sing_df
-    } else {
-      cohort_data <- merged_sing_df %>%
-        filter(study == cohort_name)
-    }
-    
-    # === Filter by Timepoint
-    if (timepoint_name != "All") {
-      cohort_data <- cohort_data %>% filter(Timepoint == timepoint_name)
-    }
-    
-    # === Create a Singscore Matrix
-    singscore_matrix <- cohort_data %>%
+  # === Internal helper function to compute and render heatmap
+  compute_and_render_correlation <- function(data, cohort_name, timepoint_name, cor_method) {
+    singscore_matrix <- data %>%
       dplyr::select(sample_id, Pathway, Singscore) %>%
       tidyr::pivot_wider(names_from = Pathway, values_from = Singscore) %>%
       tibble::column_to_rownames("sample_id")
-    
-    # === Enforce Valid Method and Clean Whitespace ===
-    cor_method <- trimws(input$correlationMethod)  
-    cor_method <- match.arg(cor_method, c("pearson", "kendall", "spearman"))
-    
-    # === Compute the Correlation Matrix
+
     correlation_matrix <- cor(singscore_matrix, method = cor_method, use = "pairwise.complete.obs")
-    
-    showNotification("Rendering interactive heatmap...", type = "message")
-    
-    # === Plot the Interactive Heatmap
+
     output$correlationHeatmap <- renderPlotly({
       heatmaply::heatmaply(
         correlation_matrix,
@@ -1073,26 +1046,11 @@ observeEvent(input$resetCohortSelection, {
         showticklabels = c(FALSE, FALSE)
       ) %>%
         plotly::layout(
-          xaxis = list(
-            showticklabels = FALSE,
-            title = NULL,
-            showline = FALSE,
-            tickvals = list(),
-            ticktext = list()
-          ),
-          yaxis = list(
-            showticklabels = FALSE,
-            title = NULL,
-            showline = FALSE,
-            tickvals = list(),
-            ticktext = list()
-          )
+          xaxis = list(showticklabels = FALSE, title = NULL),
+          yaxis = list(showticklabels = FALSE, title = NULL)
         )
     })
-    
-    showNotification("Interactive heatmap rendering complete!", type = "message")
-    
-    # === Allow Download of the Correlation Matrix
+
     output$downloadCorrelation <- downloadHandler(
       filename = function() {
         paste0("Pathway_Correlation_", cohort_name, "_", timepoint_name, "_", Sys.Date(), ".csv")
@@ -1101,7 +1059,32 @@ observeEvent(input$resetCohortSelection, {
         write.csv(correlation_matrix, file, row.names = TRUE)
       }
     )
+  }
+
+  # === Triggered when "Compute Correlation" button is clicked
+  observeEvent(input$computeCorrelation, {
+    req(input$cohortFilter, input$timepointFilter)
+
+    showNotification("Computing pathway correlations...", type = "message")
+
+    # === Apply filters
+    cohort_name <- input$cohortFilter
+    timepoint_name <- input$timepointFilter
+
+    data <- if (cohort_name == "All") merged_sing_df else merged_sing_df %>% filter(study == cohort_name)
+    if (timepoint_name != "All") {
+      data <- data %>% filter(Timepoint == timepoint_name)
+    }
+
+    # === Correlation method
+    cor_method <- trimws(input$correlationMethod)
+    cor_method <- match.arg(cor_method, c("pearson", "kendall", "spearman"))
+
+    compute_and_render_correlation(data, cohort_name, timepoint_name, cor_method)
+
+    showNotification("Interactive heatmap rendering complete!", type = "message")
   })
+
   
   observeEvent(input$cohortFilter, {
     if (input$cohortFilter != "") {
@@ -1110,92 +1093,93 @@ observeEvent(input$resetCohortSelection, {
   })
   
   observeEvent(input$computeTrajectory, {
-    req(input$trajectoryPathways, input$studyFilter)
-    
-    showNotification("Computing trajectory of pathway correlations...", type = "message")
-    
-    # === Filter by study if not 'All'
-    data <- if (input$studyFilter != "All") {
-      merged_sing_df %>%
-        filter(study == input$studyFilter)
-    } else {
-      merged_sing_df
+  req(input$trajectoryPathways, input$studyFilter, 
+      input$trajectoryTimepoint1, input$trajectoryTimepoint2)
+  
+  showNotification("Computing trajectory of pathway correlations...", type = "message")
+  
+  # === Filter by study
+  data <- if (input$studyFilter != "All") {
+    merged_sing_df %>% filter(study == input$studyFilter)
+  } else {
+    merged_sing_df
+  }
+  
+  # === Subset selected pathways
+  data <- data %>% filter(Pathway %in% input$trajectoryPathways)
+  
+  # === Pivot to wide format
+  wide_data <- data %>%
+    dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
+    tidyr::pivot_wider(names_from = Pathway, values_from = Singscore)
+  
+  # === Ensure numeric columns
+  singscore_matrix <- wide_data %>%
+    dplyr::select(-sample_id, -Timepoint) %>%
+    mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+    as.data.frame()
+  
+  rownames(singscore_matrix) <- wide_data$sample_id
+  timepoints_vector <- wide_data$Timepoint
+  
+  # === Compute correlation matrix per timepoint
+  correlation_list <- list()
+  for (tp in unique(timepoints_vector)) {
+    idx <- which(timepoints_vector == tp)
+    sub_matrix <- singscore_matrix[idx, , drop = FALSE]
+    if (nrow(sub_matrix) > 1) {
+      correlation_list[[tp]] <- cor(sub_matrix, use = "pairwise.complete.obs")
     }
-    
-    # === Subset only the selected pathways
-    data <- data %>%
-      filter(Pathway %in% input$trajectoryPathways)
-    
-    # === Pivot to wide format to prepare for correlation calculation
-    wide_data <- data %>%
-      dplyr::select(sample_id, Pathway, Singscore, Timepoint) %>%
-      tidyr::pivot_wider(names_from = Pathway, values_from = Singscore)
-    
-    # === Ensure numeric columns
-    singscore_matrix <- wide_data %>%
-      dplyr::select(-sample_id, -Timepoint) %>%
-      mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
-      as.data.frame()
-    
-    rownames(singscore_matrix) <- wide_data$sample_id
-    timepoints_vector <- wide_data$Timepoint
-    
-    # === Compute correlation matrix per timepoint
-    correlation_list <- list()
-    for (tp in unique(timepoints_vector)) {
-      idx <- which(timepoints_vector == tp)
-      sub_matrix <- singscore_matrix[idx, , drop = FALSE]
-      
-      if (nrow(sub_matrix) > 1) {
-        correlation_matrix <- cor(sub_matrix, use = "pairwise.complete.obs")
-        correlation_list[[tp]] <- correlation_matrix
-      }
+  }
+  
+  # === Convert to long format
+  correlation_df <- do.call(rbind, lapply(names(correlation_list), function(tp) {
+    corr_mat <- correlation_list[[tp]]
+    if (!is.null(corr_mat)) {
+      df <- as.data.frame(as.table(corr_mat))
+      df$Timepoint <- tp
+      return(df)
     }
+  }))
+  
+  colnames(correlation_df) <- c("Pathway1", "Pathway2", "Correlation", "Timepoint")
+  
+  # === Filter only unique pairwise correlations
+  selected_pairs <- combn(unique(input$trajectoryPathways), 2, simplify = FALSE)
+  selected_pair_labels <- sapply(selected_pairs, function(x) paste(sort(x), collapse = " vs "))
+  
+  correlation_df <- correlation_df %>%
+    filter(Pathway1 != Pathway2) %>%
+    mutate(Pair = paste(pmin(Pathway1, Pathway2), pmax(Pathway1, Pathway2), sep = " vs ")) %>%
+    filter(Pair %in% selected_pair_labels) %>%
+    distinct(Pair, Timepoint, .keep_all = TRUE)
+  
+  # === Compute Delta Correlation Matrix (tp2 - tp1)
+  tp1 <- input$trajectoryTimepoint1
+  tp2 <- input$trajectoryTimepoint2
+  
+  if (tp1 %in% names(correlation_list) && tp2 %in% names(correlation_list)) {
+    corr1 <- correlation_list[[tp1]]
+    corr2 <- correlation_list[[tp2]]
+    delta_matrix <- corr2 - corr1
     
-    # === Convert to long format
-    correlation_df <- do.call(rbind, lapply(names(correlation_list), function(tp) {
-      corr_mat <- correlation_list[[tp]]
-      if (!is.null(corr_mat)) {
-        df <- as.data.frame(as.table(corr_mat))
-        df$Timepoint <- tp
-        return(df)
-      }
-    }))
-    colnames(correlation_df) <- c("Pathway1", "Pathway2", "Correlation", "Timepoint")
-    
-    selected_pairs <- combn(unique(input$trajectoryPathways), 2, simplify = FALSE)
-    selected_pair_labels <- sapply(selected_pairs, function(x) paste(sort(x), collapse = " vs "))
-    
-    # Filter only selected pairs (avoid self-correlations)
-    correlation_df <- correlation_df %>%
-      filter(Pathway1 != Pathway2) %>%
-      mutate(Pair = paste(pmin(Pathway1, Pathway2), pmax(Pathway1, Pathway2), sep = " vs ")) %>%
-      filter(Pair %in% selected_pair_labels) %>%
-      distinct(Pair, Timepoint, .keep_all = TRUE)
-    
-    # === Compute Delta Correlation Matrix (Week 6 - Baseline)
-    if ("Baseline" %in% names(correlation_list) && "Week 6" %in% names(correlation_list)) {
-      baseline_corr <- correlation_list[["Baseline"]]
-      week6_corr <- correlation_list[["Week 6"]]
-      delta_matrix <- week6_corr - baseline_corr
-      
-      # === Render Delta Correlation Heatmap
-      output$deltaCorrelationHeatmap <- renderPlotly({
-        heatmaply::heatmaply(
-          delta_matrix,
-          main = "Delta Correlation (Week 6 - Baseline)",
-          xlab = "Pathways",
-          ylab = "Pathways",
-          colors = colorRampPalette(c("blue", "white", "red"))(100),
-          dendrogram = "both"
-        )
-      })
-    } else {
-      showNotification("One of the timepoints (Baseline or Week 6) is missing.", type = "error")
-    }
-    
-    showNotification("Trajectory analysis complete!", type = "message")
-  })
+    # === Render Delta Correlation Heatmap
+    output$deltaCorrelationHeatmap <- renderPlotly({
+      heatmaply::heatmaply(
+        delta_matrix,
+        main = paste("Delta Correlation (", tp2, " - ", tp1, ")", sep = ""),
+        xlab = "",
+        ylab = "",
+        colors = colorRampPalette(c("blue", "white", "red"))(100),
+        dendrogram = "both"
+      )
+    })
+  } else {
+    showNotification("One or both selected timepoints are missing correlation data.", type = "error")
+  }
+  
+  showNotification("Trajectory analysis complete!", type = "message")
+})
   
   # Download Table as CSV
   output$downloadTable <- downloadHandler(
@@ -1240,6 +1224,10 @@ observeEvent(input$resetCohortSelection, {
   )
 })
 
+surv_plot_reactive <- reactiveVal()
+risk_table_reactive <- reactiveVal()
+censor_plot_reactive <- reactiveVal()
+
 observeEvent(input$runSurvival, {
   req(filtered_data(), input$selectedSurvivalCohort)
 
@@ -1264,7 +1252,7 @@ observeEvent(input$runSurvival, {
   #  Recode binary response 
   if ("MPRvNMPR" %in% colnames(data)) {
     data <- data %>%
-      mutate(Response_comparison = dplyr::case_when(
+      mutate(Response = dplyr::case_when(
         MPRvNMPR == 1 ~ "MPRs",
         MPRvNMPR == 0 ~ "NMPRs",
         TRUE ~ NA_character_
@@ -1274,7 +1262,7 @@ observeEvent(input$runSurvival, {
   # Determine grouping variable 
   group_col <- dplyr::case_when(
   input$groupingVariable == "Custom Group" ~ "Group",
-  input$groupingVariable == "Response"     ~ "Response_comparison",
+  input$groupingVariable == "Response"     ~ "Response",
   input$groupingVariable == "Mutation"     ~ "Mutation"
 )
 
@@ -1282,15 +1270,11 @@ observeEvent(input$runSurvival, {
 surv_data_input <- run_survival_analysis(
   data = data,
   survival_type = input$survivalTime,
-  group_col = group_col
+  group_col = group_col,
+  time_unit = input$time_unit
 )
 
-max_time <- ceiling(max(surv_data_input$data$time, na.rm = TRUE))
-
-output$timeSliderUI <- renderUI({
-    sliderInput("time_range", "Filter Time Range (Months)",
-                min = 0, max = max_time, value = c(0, max_time), step = 1)
-  })
+print(surv_data_input)
 
 
 surv_plot <- plotly_survival(
@@ -1298,7 +1282,8 @@ surv_plot <- plotly_survival(
       data = surv_data_input$data,
       survival_type = input$survivalTime,
       group_col = group_col,
-      pval_txt = surv_data_input$pval_txt
+      pval_txt = surv_data_input$pval_txt,
+      time_unit = input$time_unit
     )
 
 
@@ -1315,8 +1300,34 @@ output$censorTable <- renderPlot({
   surv_plot$censor_plot
 })
 
+surv_plot_reactive(surv_plot$gplot)
+risk_table_reactive(surv_plot$risk_table)
+censor_plot_reactive(surv_plot$censor_plot)
+
 
 })
+
+output$downloadSurvPlots <- downloadHandler(
+  filename = function() {
+    paste0("survival_plots_", input$survivalTime, "_", Sys.Date(), ".zip")
+  },
+  content = function(zipfile) {
+    # Create temp directory
+    tmpdir <- tempdir()
+    surv_file <- file.path(tmpdir, "survival_plot.png")
+    risk_file <- file.path(tmpdir, "risk_table.png")
+    censor_file <- file.path(tmpdir, "censor_plot.png")
+
+    # Save plots using ggsave
+    ggsave(surv_file, plot = surv_plot_reactive(), bg= "white", width = 8, height = 6, dpi = 300)
+    ggsave(risk_file, plot = risk_table_reactive(), bg= "white", width = 8, height = 3, dpi = 300)
+    ggsave(censor_file, plot = censor_plot_reactive(), bg= "white", width = 8, height = 3, dpi = 300)
+
+    # Zip the files
+    zip::zip(zipfile, files = c(surv_file, risk_file, censor_file))
+  },
+  contentType = "application/zip"
+)
 
 ### HELP Support button - survival
 observeEvent(input$openSurvivalHelp, {
@@ -1337,6 +1348,24 @@ observeEvent(input$openSurvivalHelp, {
   ))
 })
 
+
+### HELP Support button - data upload
+observeEvent(input$dataImportHelp, {
+  showModal(modalDialog(
+    title = "Data Import Help",
+    easyClose = TRUE,
+    size = "m",
+    tagList(
+      p("This tab allows you to upload your own gene expression matrix and clinical data:"),
+      tags$ul(
+        tags$li("Click the show example data format below to see the correct input should look like, including name conventions for columns."),
+        tags$li("There is also an option to compare your data to our reference set - click merge with example data."),
+        tags$li("You can also upload a specific signature of your own. Please ensure example data isn't selected.")
+      )
+    )
+  ))
+})
+
 ### help/info button for signature analysis
 observeEvent(input$openSignatureHelp, {
   showModal(modalDialog(
@@ -1350,7 +1379,8 @@ observeEvent(input$openSignatureHelp, {
         tags$li("Study: Filter data to a specific clinical trial or keep 'All'."),
         tags$li("Comparison Type: Choose to compare by response, recurrence, or dynamics."),
         tags$li("Timepoint: Focus on Baseline, Week 6, or all timepoints."),
-        tags$li("Custom Cohort: Create and select patient subsets for focused comparisons.")
+        tags$li("Custom Cohort: Create and select patient subsets for focused comparisons."),
+        tags$li("Curated Gene sets: Please head over to the Help tab for more to find the reference for the gene set.")
       ),
       p("After selecting your filters, results will update dynamically in the dashboard view.")
     )

@@ -78,44 +78,51 @@ ui <- navbarPage(
   "))
 ),
   
-  tabPanel(
-    "Data Import",
-    fluidRow(
-      column(
-        6, offset = 3,
-        wellPanel(
+   tabPanel(
+  "Data Import",
+  fluidRow(
+    column(
+      6, offset = 3,
+      wellPanel(
+        div(
+          style = "display: flex; align-items: center; justify-content: space-between;",
           h3("Import Data"),
-          fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
-          fileInput("metadata", "Upload Clinical Data (.csv, .tsv)", accept = c(".csv", ".tsv")),
-          checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
-          actionButton("submitData", "Submit Data"),
-          br(),
-          verbatimTextOutput("preprocessLog"),
-          div(style = "margin-bottom: 20px;")
-        )
+          actionButton("dataImportHelp", label = NULL, icon = icon("info-circle"),
+            style = "font-size: 20px; background-color: transparent; color: #31708f; border: none;",
+            title = "Click for help"
+          )
+        ),
+        fileInput("exprMatrix", "Upload Gene Expression Matrix (.csv, .tsv)", accept = c(".csv", ".tsv")),
+        fileInput("metadata", "Upload Clinical Data (.csv, .tsv)", accept = c(".csv", ".tsv")),
+        fileInput("custom_geneset_upload", "Upload Custom Gene Set (.csv, .tsv)", accept = c(".csv", ".tsv")),
+        checkboxInput("mergeToExample", "Merge with example dataset", value = TRUE),
+        actionButton("submitData", "Submit Data"),
+        br(),
+        verbatimTextOutput("preprocessLog"),
+        div(style = "margin-bottom: 20px;")
       )
-    ),
-    fluidRow(
+    )
+  ),
+  fluidRow(
     column(
       12,
       div(
         style = "display: flex; gap: 10px;",
-        actionButton("showExample", "Show Example Data Format", icon = icon("eye")),
-        actionButton("useExampleData", "Use Example Data", icon = icon("upload"))
+        actionButton("showExample", "Show Example Data Format", icon = icon("eye"))
       ),
       div(id = "exampleData", style = "display: none;",
           br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
           br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata"))
     )
   ),
-    fluidRow(
-      column(12,
-             h3("Uploaded Data Preview"),
-             DT::dataTableOutput("previewExprMatrix"),
-             DT::dataTableOutput("previewMetadata")
-      )
+  fluidRow(
+    column(12,
+           h3("Uploaded Data Preview"),
+           DT::dataTableOutput("previewExprMatrix"),
+           DT::dataTableOutput("previewMetadata")
     )
-  ),
+  )
+),
   
   tabPanel(
     "Signature Analysis",
@@ -197,13 +204,15 @@ ui <- navbarPage(
           sidebarPanel(
             h4("Correlation Settings"),
             selectInput("correlationMethod", "Correlation Method", choices = c("pearson", "spearman", "kendall")),
-            selectInput("timepointFilter", "Timepoint", choices = c("All", "Baseline", "Week 6")),
+            selectInput("timepointFilter", "Timepoint", choices = unique(merged_sing_df$Timepoint)),
             selectInput("cohortFilter", "Cohort", choices = c("All", unique(merged_sing_df$study))),
-            actionButton("computeCorrelation", "Compute Correlation", class = "btn-primary"),
+            actionButton("computeCorrelation", "Compute Correlation", class = "btn btn-dark"),
             tags$hr(), h4("Temporal Trajectory Analysis"),
             pickerInput("trajectoryPathways", "Select Pathways", choices = unique(merged_sing_df$Pathway), multiple = TRUE, options = list(`actions-box` = TRUE)),
+            selectInput("trajectoryTimepoint1", "Select First Timepoint", choices = unique(merged_sing_df$Timepoint)),
+            selectInput("trajectoryTimepoint2", "Select Second Timepoint", choices = unique(merged_sing_df$Timepoint)),
             selectInput("studyFilter", "Study", choices = c("All", unique(merged_sing_df$study))),
-            actionButton("computeTrajectory", "Compute Trajectory", class = "btn-info"),
+            actionButton("computeTrajectory", "Compute Trajectory", class = "btn btn-dark"),
             tags$hr(),
             downloadButton("downloadCorrelation", "Download Correlation Matrix")
           )
@@ -250,7 +259,11 @@ ui <- navbarPage(
         selectInput("groupingVariable", "Group By", choices = c("Mutation", "Response", "Custom Group")),
         selectInput("studySurv", "Filter by Study", choices = c("All", unique(merged_sing_df$study))),
         uiOutput("cohortSelectSurvivalUI"),
-        actionButton("runSurvival", "Run Survival Analysis", class = "btn btn-dark")
+        selectInput("time_unit", "Display time in", choices = c("days", "months", "years"), selected = "months"),
+        div(style = "display: flex; gap: 10px; align-items: center;",
+        actionButton("runSurvival", "Run Survival Analysis", class = "btn btn-dark"),
+        downloadButton("downloadSurvPlots", "Download Results", class = "btn btn-dark")
+      )
       )
     ),
     mainPanel(

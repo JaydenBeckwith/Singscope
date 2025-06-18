@@ -1,3 +1,6 @@
+
+### preprocess data as input from exp and metadata with default gmt
+
 preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath, 
                             existing_data_merge = TRUE, example_data_path = NULL, logger = message) {
   
@@ -110,3 +113,21 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath,
   logger("Skipping merge with example data — using uploaded data only.")
   return(new_data)
 }}
+
+
+### custom upload function 
+custom_upload <- function(file_path) {
+  df <- read.delim(file_path, header = TRUE, sep = ifelse(grepl("\\.csv$", file_path), ",", "\t"))
+
+  if (!all(c("Pathway", "Gene") %in% colnames(df))) {
+    stop("Input file must have columns 'Pathway' and 'Gene'")
+  }
+
+  gene_sets <- split(df$Gene, df$Pathway)
+
+  gmt_list <- lapply(names(gene_sets), function(name) {
+    GSEABase::GeneSet(setName = name, geneIds = unique(gene_sets[[name]]))
+  })
+
+  return(GSEABase::GeneSetCollection(gmt_list))
+}
