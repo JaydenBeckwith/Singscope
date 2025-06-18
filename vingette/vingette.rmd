@@ -1,0 +1,56 @@
+---
+title: "Using a Custom Gene Set in the App"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using a Custom Gene Set}
+  %\VignetteEngine{rmarkdown::render}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Overview
+
+This vignette explains how to upload and analyse a custom gene set in the singscore Shiny app.
+
+---
+
+## File Format
+
+Upload a `.csv` or `.tsv` file with the following two columns:
+
+| Pathway  | Gene   |
+|----------|--------|
+| TEST123  | PMEL   |
+| TEST123  | MLANA  |
+| TEST123  | SOX10  |
+
+**Column names must be exactly `Pathway` and `Gene`.**
+
+---
+
+## Uploading
+
+1. Navigate to the **Import Data** section.
+2. Use the **"Upload Custom Gene Set"** input to upload your file.
+3. Click **Submit Data**.
+
+---
+
+## Output
+
+Once uploaded:
+
+- The app will automatically parse your file and use it to compute singscores.
+- You’ll see your gene set(s) under “Genes in Selected Signature(s)”.
+- Merging with the default dataset is automatically disabled for custom gene sets.
+
+---
+
+## Example File
+
+Here is a valid example saved as CSV:
+
+```csv
+Pathway,Gene
+TEST123,PMEL
+TEST123,MLANA
+TEST123,SOX10
