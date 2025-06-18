@@ -104,24 +104,32 @@ ui <- navbarPage(
     )
   ),
   fluidRow(
-    column(
-      12,
-      div(
-        style = "display: flex; gap: 10px;",
-        actionButton("showExample", "Show Example Data Format", icon = icon("eye"))
-      ),
-      div(id = "exampleData", style = "display: none;",
-          br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
-          br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata"))
-    )
-  ),
-  fluidRow(
-    column(12,
-           h3("Uploaded Data Preview"),
-           DT::dataTableOutput("previewExprMatrix"),
-           DT::dataTableOutput("previewMetadata")
+  column(
+    12,
+    div(
+      style = "display: flex; gap: 10px;",
+      actionButton("showExample", "Show Example Data Format", icon = icon("eye")),
+      actionButton("showGmtExample", "Show Example Gene Set", icon = icon("dna"))
+    ),
+    div(id = "exampleData", style = "display: none;",
+        br(), h4("Example Gene Expression Matrix"), DT::dataTableOutput("exampleExprMatrix"),
+        br(), h4("Example Metadata"), DT::dataTableOutput("exampleMetadata")
+    ),
+    div(id = "exampleGmtData", style = "display: none;",
+        br(), h4("Example Custom Gene Set (.csv/.tsv Format)", style = "text-align: center;"),
+        div(style = "display: flex; justify-content: center;",
+            div(style = "width: 300px;", DT::dataTableOutput("exampleGmtTable"))
+        )
     )
   )
+),
+fluidRow(
+  column(12,
+         h3("Uploaded Data Preview"),
+         DT::dataTableOutput("previewExprMatrix"),
+         DT::dataTableOutput("previewMetadata")
+  )
+)
 ),
   
   tabPanel(

@@ -19,6 +19,13 @@ An interactive Shiny application for analysing bulk RNA signatures and supportin
 * Track pathway correlations over time
 * Survival analysis with KM plots
 ---
+
+## Manual 
+
+- [Using a Custom Gene Set](https://jaydenbeckwith.github.io/Singscope/upload_custom_geneset.html)
+
+---
+
 ## Installation (Docker)
 
 1. **Clone this repo**
