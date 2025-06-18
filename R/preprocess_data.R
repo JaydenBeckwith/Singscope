@@ -1,15 +1,14 @@
 
 ### preprocess data as input from exp and metadata with default gmt
 
-preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath, 
+preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmt,
                             existing_data_merge = TRUE, example_data_path = NULL, logger = message) {
-  
+
   mart <- biomaRt::useMart("ensembl", dataset = "hsapiens_gene_ensembl", host = "https://may2025.archive.ensembl.org")
   metadata <- read.csv(metadataPath)
   required_cols <- c("sample_id", "study", "recurrence_status", "Gender", "MPRvNMPR", "Timepoint")
-  
+
   missing_cols <- setdiff(required_cols, colnames(metadata))
-  
   if (length(missing_cols) > 0) {
     message("The following columns are missing and will be filled with NA: ", paste(missing_cols, collapse = ", "))
     for (col in missing_cols) {
@@ -20,8 +19,6 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath,
   expr_data <- read.csv(exprMatrixPath)
   logger("Starting Ensembl")
 
-  # Retrieve Ensembl IDs and Gene Lengths
-  mart <- biomaRt::useMart("ensembl", dataset = "hsapiens_gene_ensembl")
   gene_lengths <- biomaRt::getBM(
     attributes = c("ensembl_gene_id", "cds_length"),
     filters = "ensembl_gene_id",
@@ -49,18 +46,17 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath,
   filtered_counts_df <- filtered_counts_df[!is.na(filtered_counts_df$gene_length), ]
   rownames(filtered_counts_df) <- filtered_counts_df$ensembl_gene_id
   filtered_counts_df <- filtered_counts_df %>% dplyr::select(-ensembl_gene_id)
-  
+
   logger("rpk to tpm")
   expr_only <- filtered_counts_df[, setdiff(names(filtered_counts_df), "gene_length")]
   expr_only[] <- lapply(expr_only, as.numeric)
   filtered_counts_df$gene_length <- as.numeric(filtered_counts_df$gene_length)
 
   rpk <- expr_only / filtered_counts_df$gene_length
-
-  
   logger("passed rpk doing tpms")
+
   tpm <- sweep(rpk, 2, colSums(rpk), FUN = "/") * 1e6
-  
+
   logger("ensembl to gene")
   ensembl_to_gene <- setNames(protein_coding$hgnc_symbol, protein_coding$ensembl_gene_id)
   tpm$gene_symbol <- ensembl_to_gene[rownames(tpm)]
@@ -69,9 +65,18 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath,
 
   logger("singscores generating..")
 
-  # Singscore analysis
-  if (!file.exists(gmtPath)) stop("Invalid GMT path: ", gmtPath)
-  PIPdx <- GSEABase::getGmt(gmtPath)
+  # Load gene set
+  if (inherits(gmt, "GeneSetCollection")) {
+    PIPdx <- gmt
+    logger("Using user-uploaded custom gene set.")
+    allow_merge <- FALSE
+  } else if (is.character(gmt) && file.exists(gmt)) {
+    PIPdx <- GSEABase::getGmt(gmt)
+    logger(paste("Using default GMT file:", gmt))
+    allow_merge <- TRUE
+  } else {
+    stop("Invalid GMT input: must be either a file path or a GeneSetCollection.")
+  }
 
   rownames(tpm) <- tpm$gene_symbol
   tpm$gene_symbol <- NULL
@@ -92,27 +97,26 @@ preprocess_data <- function(exprMatrixPath, metadataPath, cohortName, gmtPath,
 
   logger("done")
 
-  if (existing_data_merge) {
-  logger(paste("Merging with existing dataset from:", example_data_path))
+  if (existing_data_merge && allow_merge) {
+    logger(paste("Merging with existing dataset from:", example_data_path))
 
-  if (is.null(example_data_path) || !file.exists(example_data_path)) {
-    stop("Example RDS file not found or not specified: ", example_data_path)
+    if (is.null(example_data_path) || !file.exists(example_data_path)) {
+      stop("Example RDS file not found or not specified: ", example_data_path)
+    }
+
+    existing_data <- readRDS(example_data_path)
+
+    combined_data <- existing_data %>%
+      dplyr::anti_join(new_data, by = "sample_id") %>%
+      dplyr::bind_rows(new_data)
+
+    saveRDS(combined_data, example_data_path)
+    return(combined_data)
+  } else {
+    if (!allow_merge) logger("Skipping merge: custom gene set upload detected.")
+    return(new_data)
   }
-
-  existing_data <- readRDS(example_data_path)
-
-  combined_data <- existing_data %>%
-    dplyr::anti_join(new_data, by = "sample_id") %>%
-    dplyr::bind_rows(new_data)
-
-  saveRDS(combined_data, example_data_path)
-
-  return(combined_data)
-  
-} else {
-  logger("Skipping merge with example data — using uploaded data only.")
-  return(new_data)
-}}
+}
 
 
 ### custom upload function 

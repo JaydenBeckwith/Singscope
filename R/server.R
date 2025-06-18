@@ -11,13 +11,14 @@ EXAMPLE_DATA <- if (file.exists("example_data_neotrio_neopele.rds")) {
 merged_sing_df <- readRDS(EXAMPLE_DATA)
 
 
-gmt_path <- if (file.exists("/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt")) {
-  "/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt"
-} else {
-  "/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt"
-}
+gmt_path <- reactive({
+  if (!is.null(input$custom_geneset_upload)) {
+    input$custom_geneset_upload$datapath
+  } else {
+    "/srv/shiny-server/data/20251505_240genelist_withphenotypes.gmt"
+  }
+})
 
-gmt_data_show <- read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
 
 SIGNATURE_DATA <- jsonlite::fromJSON("/srv/shiny-server/data/pathway_references_with_genes.json")
 
@@ -84,9 +85,28 @@ server <- function(input, output, session) {
   })
   
   # Toggle visibility on button click
-  observeEvent(input$showExample, {
-    toggle("exampleData")
-  })
+  # Example custom GMT preview
+example_gmt <- data.frame(
+  Pathway = c("TEST123", "TEST123", "TEST123"),
+  Gene = c("PMEL", "MLANA", "SOX10")
+)
+
+output$exampleGmtTable <- DT::renderDataTable({
+  DT::datatable(
+    example_gmt,
+    options = list(dom = 't', ordering = FALSE, paging = FALSE),
+    rownames = FALSE
+  )
+})
+
+# Toggle visibility
+observeEvent(input$showGmtExample, {
+  shinyjs::toggle("exampleGmtData")
+})
+
+observeEvent(input$showExample, {
+  shinyjs::toggle("exampleData")
+})
   
   expr_data <- reactiveVal(NULL)
   metadata_data <- reactiveVal(NULL)
@@ -142,11 +162,17 @@ server <- function(input, output, session) {
     tryCatch({
       log_text("Starting preprocessing...")  
 
+      gmt_input <- if (!is.null(input$custom_geneset_upload)) {
+      custom_upload(input$custom_geneset_upload$datapath)
+      } else {
+        gmt_path()
+      }
+
       new_data <- preprocess_data(
         exprMatrixPath = input$exprMatrix$datapath,
         metadataPath = input$metadata$datapath,
         cohortName = input$cohortName,
-        gmtPath = gmt_path,
+        gmt = gmt_input,
         existing_data_merge = input$mergeToExample,
         example_data_path = EXAMPLE_DATA,
         logger = append_log
@@ -170,35 +196,48 @@ server <- function(input, output, session) {
     })
   })
   
-    
+  gmt_data_show <- reactive({
+  if (!is.null(input$custom_geneset_upload)) {
+    df <- read.delim(input$custom_geneset_upload$datapath,
+                     header = TRUE,
+                     sep = ifelse(grepl("\\.csv$", input$custom_geneset_upload$name), ",", "\t"))
+
+    if (!all(c("Pathway", "Gene") %in% colnames(df))) {
+      showNotification("Custom gene set must have 'Pathway' and 'Gene' columns.", type = "error")
+      return(NULL)
+    }
+
+    colnames(df) <- c("term", "gene")
+    return(df)
+  } else {
+    read.csv("/srv/shiny-server/data/singscore_gene_enrichment_list.csv")
+  }
+})
   
   # Reactive expression to get associated genes from GMTy
   output$geneList <- renderUI({
-    selected_pathways <- input$pathway
-    
-    if (length(selected_pathways) == 0) {
-      return(div("No pathways selected."))
+  req(gmt_data_show(), input$pathway)
+
+  selected_pathways <- input$pathway
+  gmt_df <- gmt_data_show()
+
+  gene_lists <- lapply(selected_pathways, function(pathway) {
+    genes <- gmt_df$gene[gmt_df$term == pathway]
+    if (length(genes) > 0) {
+      list(
+        tags$h5(strong(pathway)),
+        tags$ul(lapply(genes, tags$li))
+      )
+    } else {
+      list(
+        tags$h5(strong(pathway)),
+        div("No genes found for this pathway.")
+      )
     }
-    
-    # Get genes for each selected pathway
-    gene_lists <- lapply(selected_pathways, function(pathway) {
-      genes <- gmt_data_show$gene[gmt_data_show$term == pathway]
-      if (length(genes) > 0) {
-        list(
-          tags$h5(strong(pathway)), # Header for the pathway
-          tags$ul(lapply(genes, tags$li)) # List of genes
-        )
-      } else {
-        list(
-          tags$h5(strong(pathway)),
-          div("No genes found for this pathway.")
-        )
-      }
-    })
-    
-    # Return combined UI
-    do.call(tagList, gene_lists)
   })
+  do.call(tagList, gene_lists)
+})
+
   
   # Reactive data subset for the plot and table
   selected_data <- reactive({
@@ -294,8 +333,8 @@ server <- function(input, output, session) {
   plot_list <- lapply(input$pathway, function(path) {
     plotname <- paste0("plot_", path)
     div(
-      style = "margin-bottom: 10px; max-width: 1200px;",
-      plotlyOutput(plotname, height = "600px", width = "100%")
+      style = "margin-bottom: 20px; width: 100%; padding: 0 20px;",
+      plotlyOutput(plotname, height = "700px", width = "100%")
     )
   })
   do.call(tagList, plot_list)
@@ -1360,7 +1399,7 @@ observeEvent(input$dataImportHelp, {
       tags$ul(
         tags$li("Click the show example data format below to see the correct input should look like, including name conventions for columns."),
         tags$li("There is also an option to compare your data to our reference set - click merge with example data."),
-        tags$li("You can also upload a specific signature of your own. Please ensure example data isn't selected.")
+        tags$li("You can also upload specific signatures of your own. Please ensure example data isn't selected. This feature only works when uploading your own data and can't be merged to the example reference set.")
       )
     )
   ))
